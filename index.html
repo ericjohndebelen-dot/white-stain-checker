@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10121d">
+  <meta name="description" content="Estimate white stain coverage in a baccarat PLAYER / BANKER zone. Images stay on your device.">
+  <title>White Stain Inspector · Table Care</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10121d;
+      --panel: #181b29;
+      --panel-raised: #202436;
+      --line: rgba(255,255,255,.09);
+      --ink: #f2f2f7;
+      --muted: #9a9fb2;
+      --subtle: #6f758b;
+      --violet: #9c8bff;
+      --violet-soft: rgba(156,139,255,.13);
+      --mint: #8ce0c5;
+      --amber: #f4bd71;
+      --red: #ff6675;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 60% -22%, rgba(110,92,212,.18), transparent 48%),
+        var(--bg);
+      color: var(--ink);
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .app { max-width: 1510px; margin: 0 auto; padding: 28px 34px 38px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:30px; }
+    .brand { display:flex; align-items:center; gap:13px; min-width:0; }
+    .brand-mark { width:42px; height:42px; display:grid; place-items:center; border:1px solid rgba(156,139,255,.45); border-radius:14px; color:var(--violet); background:linear-gradient(145deg,rgba(156,139,255,.2),rgba(156,139,255,.04)); box-shadow:inset 0 1px rgba(255,255,255,.12); }
+    .brand-mark svg { width:21px; height:21px; }
+    .eyebrow { color:var(--muted); font-size:10px; font-weight:750; letter-spacing:.17em; text-transform:uppercase; }
+    .brand-name { margin-top:4px; font-size:14px; font-weight:700; letter-spacing:.015em; }
+    .privacy-pill { display:inline-flex; align-items:center; gap:9px; padding:9px 12px; border:1px solid rgba(140,224,197,.22); border-radius:999px; color:#b6ecd9; background:rgba(140,224,197,.07); font-size:11px; font-weight:650; white-space:nowrap; }
+    .privacy-dot { width:7px; height:7px; border-radius:50%; background:var(--mint); box-shadow:0 0 10px rgba(140,224,197,.75); }
+    .intro { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:20px; }
+    h1 { margin:0; font-size:clamp(24px,3vw,35px); font-weight:680; letter-spacing:-.045em; line-height:1.15; }
+    .intro p { margin:9px 0 0; color:var(--muted); font-size:13px; line-height:1.55; }
+    .intro-note { max-width:270px; padding:11px 13px; color:#d4cfff; border:1px solid rgba(156,139,255,.18); border-radius:12px; background:rgba(156,139,255,.07); font-size:11px; line-height:1.5; }
+    .layout { display:grid; grid-template-columns:290px minmax(360px,1fr) 270px; gap:16px; align-items:start; }
+    .panel { border:1px solid var(--line); border-radius:17px; background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 90%),var(--panel); box-shadow:0 14px 38px rgba(0,0,0,.13); }
+    .controls { padding:19px; }
+    .section-heading { display:flex; align-items:center; gap:9px; margin:0 0 14px; font-size:12px; font-weight:700; letter-spacing:.015em; }
+    .step { display:grid; place-items:center; width:20px; height:20px; color:#d2caff; border-radius:7px; background:var(--violet-soft); font-size:10px; }
+    .upload-box { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:126px; padding:14px; border:1px dashed rgba(156,139,255,.4); border-radius:13px; background:rgba(156,139,255,.045); text-align:center; transition:.2s ease; }
+    .upload-box.dragging { border-color:var(--mint); background:rgba(140,224,197,.08); }
+    .upload-icon { width:31px; height:31px; margin-bottom:8px; display:grid; place-items:center; border-radius:10px; color:var(--violet); background:rgba(156,139,255,.13); }
+    .upload-icon svg { width:17px; height:17px; }
+    .upload-title { font-size:11px; font-weight:680; }
+    .upload-hint { margin-top:5px; color:var(--muted); font-size:10px; }
+    .primary-button, .secondary-button, .tool-button, .download-button { border:0; cursor:pointer; transition:transform .15s ease,background .15s ease,border-color .15s ease,opacity .15s ease; }
+    button:focus-visible, input:focus-visible { outline:2px solid var(--mint); outline-offset:3px; }
+    button:active:not(:disabled) { transform:translateY(1px); }
+    .primary-button { width:100%; margin-top:12px; padding:10px 13px; border-radius:10px; color:#171525; background:var(--violet); font-size:11px; font-weight:760; }
+    .primary-button:hover { background:#b2a6ff; }
+    .file-meta { margin-top:10px; color:var(--muted); font-size:10px; line-height:1.45; overflow-wrap:anywhere; }
+    .divider { height:1px; margin:19px 0; background:var(--line); }
+    .control-label { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; font-size:11px; font-weight:650; }
+    .control-label small { color:var(--muted); font-weight:500; }
+    .area-preview { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 11px; border:1px solid var(--line); border-radius:10px; color:#ddd9fa; background:rgba(156,139,255,.06); font-size:10px; }
+    .area-badge { padding:4px 7px; border:1px solid rgba(156,139,255,.22); border-radius:6px; color:#c4baff; font-size:9px; white-space:nowrap; }
+    .secondary-button { width:100%; margin-top:9px; padding:9px 10px; border:1px solid var(--line); border-radius:9px; color:#d7d8e4; background:rgba(255,255,255,.035); font-size:10px; font-weight:620; }
+    .secondary-button:hover:not(:disabled) { border-color:rgba(156,139,255,.4); background:rgba(156,139,255,.08); }
+    .mode-group { display:grid; grid-template-columns:.78fr 1.18fr 1fr; gap:6px; }
+    .tool-button { padding:9px 8px; border:1px solid var(--line); border-radius:9px; color:#aeb2c2; background:rgba(255,255,255,.025); font-size:10px; font-weight:640; }
+    .tool-button.active { color:#e6e1ff; border-color:rgba(156,139,255,.42); background:rgba(156,139,255,.13); }
+    .tool-button.erase.active { color:#d8f8ed; border-color:rgba(140,224,197,.4); background:rgba(140,224,197,.11); }
+    .helper-text { margin:8px 0 0; color:var(--muted); font-size:10px; line-height:1.5; }
+    .range-wrap { margin-top:15px; }
+    input[type="range"] { width:100%; height:4px; accent-color:var(--violet); cursor:pointer; }
+    .range-caption { display:flex; justify-content:space-between; gap:8px; margin-top:3px; color:var(--subtle); font-size:9px; }
+    .range-value { color:#d8d2ff; font-variant-numeric:tabular-nums; }
+    .brush-controls { margin-top:12px; }
+    .mask-actions { display:grid; grid-template-columns:1fr auto; gap:7px; align-items:center; margin-top:9px; }
+    .mask-actions .secondary-button { margin:0; }
+    .canvas-panel { min-width:0; overflow:hidden; }
+    .canvas-head { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px 17px 13px; border-bottom:1px solid var(--line); }
+    .canvas-title { font-size:12px; font-weight:700; }
+    .canvas-instruction { margin-top:4px; color:var(--muted); font-size:10px; }
+    .frame-status { display:flex; align-items:center; gap:7px; padding:6px 8px; border:1px solid var(--line); border-radius:7px; color:var(--muted); font-size:9px; white-space:nowrap; }
+    .frame-status.ready { color:#b8ead8; border-color:rgba(140,224,197,.2); background:rgba(140,224,197,.045); }
+    .frame-status.replace { color:#ffc0c7; border-color:rgba(255,102,117,.38); background:rgba(255,102,117,.11); }
+    .frame-status.replace .privacy-dot { background:var(--red); box-shadow:0 0 10px rgba(255,102,117,.75); }
+    .canvas-stage { position:relative; min-height:420px; padding:14px; display:grid; place-items:center; overflow:hidden; background:linear-gradient(135deg,rgba(255,255,255,.018),transparent 52%),#121522; }
+    .empty-state { width:min(460px,100%); padding:35px 24px; text-align:center; }
+    .empty-art { width:60px; height:60px; margin:0 auto 17px; display:grid; place-items:center; border:1px solid rgba(156,139,255,.26); border-radius:20px; color:#b8aaff; background:radial-gradient(circle at 35% 20%,rgba(156,139,255,.25),rgba(156,139,255,.05)); }
+    .empty-art svg { width:27px; height:27px; }
+    .empty-state h2 { margin:0; font-size:15px; font-weight:680; }
+    .empty-state p { max-width:350px; margin:9px auto 0; color:var(--muted); font-size:11px; line-height:1.65; }
+    .empty-hint { margin-top:20px; color:#777d92; font-size:9px; }
+    #scene { display:none; width:100%; height:auto; border-radius:7px; touch-action:none; user-select:none; }
+    .canvas-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 15px; border-top:1px solid var(--line); color:var(--muted); font-size:9px; }
+    .legend { display:flex; align-items:center; gap:12px; }
+    .legend-item { display:flex; align-items:center; gap:5px; }
+    .swatch { width:8px; height:8px; border-radius:3px; }
+    .swatch.stain { background:var(--red); box-shadow:0 0 8px rgba(255,102,117,.4); }
+    .swatch.mask { background:var(--mint); }
+    .results { padding:18px; }
+    .result-label { color:var(--muted); font-size:10px; font-weight:600; }
+    .result-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .result-tag { padding:5px 7px; border:1px solid rgba(244,189,113,.22); border-radius:7px; color:#f4cb93; background:rgba(244,189,113,.065); font-size:8px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+    .result-tag.below { color:#d6d0ff; border-color:rgba(156,139,255,.25); background:rgba(156,139,255,.07); }
+    .result-tag.replace { color:#ffc0c7; border-color:rgba(255,102,117,.42); background:rgba(255,102,117,.14); }
+    .coverage { display:flex; align-items:baseline; gap:3px; margin:12px 0 6px; font-size:48px; font-weight:660; letter-spacing:-.07em; line-height:1; font-variant-numeric:tabular-nums; }
+    .coverage span { color:#d9d4ff; font-size:22px; letter-spacing:-.03em; }
+    .result-caption { color:var(--muted); font-size:10px; }
+    .meter { position:relative; height:5px; margin:15px 0 17px; border-radius:8px; background:rgba(255,255,255,.075); overflow:visible; }
+    .meter-fill { width:0%; height:100%; border-radius:inherit; background:linear-gradient(90deg,#927dff,#ff7a8a); transition:width .2s ease; }
+    .meter-threshold { position:absolute; z-index:1; top:-3px; left:50%; width:2px; height:11px; border-radius:2px; background:#f4bd71; box-shadow:0 0 7px rgba(244,189,113,.55); }
+    .threshold-status { margin-top:10px; padding:8px 9px; border:1px solid rgba(156,139,255,.18); border-radius:9px; color:#c8c2ef; background:rgba(156,139,255,.055); font-size:9px; line-height:1.45; }
+    .threshold-status.replace { color:#ffc0c7; border-color:rgba(255,102,117,.28); background:rgba(255,102,117,.08); }
+    .reference-chip { display:flex; align-items:center; gap:9px; margin-top:11px; padding:8px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.025); }
+    .reference-chip img { width:62px; height:34px; flex:0 0 auto; border:1px solid rgba(255,255,255,.12); border-radius:6px; object-fit:cover; }
+    .reference-chip strong, .reference-chip small { display:block; }
+    .reference-chip strong { color:#e7e4fb; font-size:9px; font-weight:700; }
+    .reference-chip small { margin-top:3px; color:var(--muted); font-size:8px; line-height:1.35; }
+    .stat-list { display:grid; gap:11px; margin:0; }
+    .stat-row { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font-size:10px; }
+    .stat-row strong { color:#e5e5ed; font-weight:630; font-variant-numeric:tabular-nums; text-align:right; }
+    .result-divider { height:1px; margin:17px 0; background:var(--line); }
+    .download-button { width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 11px; border:1px solid rgba(156,139,255,.35); border-radius:10px; color:#e8e3ff; background:rgba(156,139,255,.11); font-size:10px; font-weight:680; }
+    .download-button:hover:not(:disabled) { background:rgba(156,139,255,.19); }
+    .download-button svg { width:14px; height:14px; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+    .fineprint { margin:12px 0 0; color:#858a9e; font-size:9px; line-height:1.6; }
+    .bottom-note { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:17px; color:#82879a; font-size:9px; text-align:center; }
+    .bottom-note svg { width:12px; height:12px; color:var(--mint); }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @media (max-width:1120px) {
+      .layout { grid-template-columns:265px minmax(0,1fr); }
+      .results { grid-column:1 / -1; display:grid; grid-template-columns:1fr 1.25fr 1fr; gap:15px; align-items:center; }
+      .result-divider { display:none; }
+      .result-top { grid-column:1; }
+      .coverage-wrap { grid-column:1; }
+      .meter, .stat-list { grid-column:2; }
+      .download-button, .fineprint { grid-column:3; }
+    }
+    @media (max-width:760px) {
+      .app { padding:18px 14px 26px; }
+      .topbar { margin-bottom:24px; }
+      .intro { display:block; margin-bottom:16px; }
+      .intro-note { max-width:none; margin-top:12px; }
+      .layout { grid-template-columns:1fr; }
+      .canvas-panel { grid-row:1; }
+      .canvas-stage { min-height:280px; padding:9px; }
+      .controls { grid-row:2; }
+      .results { grid-column:auto; display:block; }
+      .result-divider { display:block; }
+      .canvas-head { padding:13px; }
+      .frame-status { font-size:8px; }
+      .privacy-pill { padding:8px 9px; font-size:9px; }
+      .brand-mark { width:38px; height:38px; }
+    }
+    @media (max-width:400px) {
+      .privacy-pill { max-width:124px; white-space:normal; line-height:1.25; }
+      .legend { gap:8px; }
+      .canvas-foot { align-items:flex-start; flex-direction:column; }
+      .frame-status { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 12 4l8 13.5H4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 14h8M10 10.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+        <div><div class="eyebrow">TABLE CARE · INSPECTION TOOL</div><div class="brand-name">White Stain Inspector</div></div>
+      </div>
+      <div class="privacy-pill"><span class="privacy-dot"></span>Public site · photos stay on your device</div>
+    </header>
+
+    <section class="intro">
+      <div>
+        <h1>Inspect the PLAYER / BANKER zone</h1>
+        <p>Highlight and estimate white dirt or stains on the baccarat felt.</p>
+      </div>
+      <div class="intro-note">The reference area is preselected. Move or resize it if the camera framing changes.</div>
+    </section>
+
+    <section class="layout" aria-label="Stain inspection workspace">
+      <aside class="panel controls">
+        <h2 class="section-heading"><span class="step">01</span> Upload a photo</h2>
+        <div class="upload-box" id="dropZone">
+          <div class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="upload-title">Drop a camera frame here</div>
+          <div class="upload-hint">PNG, JPG, or WebP</div>
+        </div>
+        <button class="primary-button" id="chooseFile">Choose a photo</button>
+        <input class="sr-only" id="fileInput" type="file" accept="image/png,image/jpeg,image/webp">
+        <div class="file-meta" id="fileMeta">No photo selected</div>
+
+        <div class="divider"></div>
+        <h2 class="section-heading"><span class="step">02</span> Adjust the area</h2>
+        <div class="area-preview"><span>PLAYER / BANKER reference zone</span><span class="area-badge">PRESET</span></div>
+        <p class="helper-text">Drag the box to move it. Drag a corner to resize it.</p>
+        <button class="secondary-button" id="resetRegion" disabled>Reset to default area</button>
+
+        <div class="divider"></div>
+        <h2 class="section-heading"><span class="step">03</span> Exclude non-stain details</h2>
+        <div class="mode-group" role="group" aria-label="Mask brush mode">
+          <button class="tool-button active" id="regionMode" aria-pressed="true" disabled>Area</button>
+          <button class="tool-button active" id="paintMode" aria-pressed="true" disabled>+ Exclude</button>
+          <button class="tool-button erase" id="eraseMode" aria-pressed="false" disabled>− Erase mask</button>
+        </div>
+        <p class="helper-text">Brush over cards, printed markings, or reflections to exclude them from the count.</p>
+        <div class="brush-controls">
+          <label class="control-label" for="brushSize">Brush size <span class="range-value" id="brushValue">28 px</span></label>
+          <input id="brushSize" type="range" min="8" max="64" value="28" disabled>
+          <div class="mask-actions"><button class="secondary-button" id="clearMask" disabled>Clear all masks</button><span class="area-badge" id="maskCount">0 masked</span></div>
+        </div>
+
+        <div class="divider"></div>
+        <h2 class="section-heading"><span class="step">04</span> Detection sensitivity</h2>
+        <div class="range-wrap">
+          <label class="control-label" for="brightness">Brightness cutoff <span class="range-value" id="brightnessValue">190</span></label>
+          <input id="brightness" type="range" min="130" max="250" value="190" disabled>
+          <div class="range-caption"><span>More pixels</span><span>Brighter only</span></div>
+        </div>
+        <div class="range-wrap">
+          <label class="control-label" for="whiteness">White tolerance <span class="range-value" id="whitenessValue">65</span></label>
+          <input id="whiteness" type="range" min="10" max="120" value="65" disabled>
+          <div class="range-caption"><span>Pure white only</span><span>Allow paler colors</span></div>
+        </div>
+      </aside>
+
+      <section class="panel canvas-panel" aria-label="Image preview">
+        <div class="canvas-head">
+          <div><div class="canvas-title">Inspection frame</div><div class="canvas-instruction" id="canvasInstruction">Upload a frame to see the preset area.</div></div>
+          <div class="frame-status" id="frameStatus"><span class="privacy-dot"></span> WAITING FOR IMAGE</div>
+        </div>
+        <div class="canvas-stage" id="canvasStage">
+          <div class="empty-state" id="emptyState">
+            <div class="empty-art" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" stroke="currentColor" stroke-width="1.5"/><path d="m5 17 4.5-4 3.2 2.8 2.2-1.8 4.1 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h2>Start an inspection</h2>
+            <p>Upload a baccarat table frame. The default box will appear over the PLAYER / BANKER card area.</p>
+            <div class="empty-hint">Your image is never sent to a server.</div>
+          </div>
+          <canvas id="scene" aria-label="Uploaded image with editable inspection area"></canvas>
+        </div>
+        <div class="canvas-foot"><div class="legend"><span class="legend-item"><span class="swatch stain"></span>Detected white pixels</span><span class="legend-item"><span class="swatch mask"></span>Excluded area</span></div><span id="imageDimensions">PNG · JPG · WebP</span></div>
+      </section>
+
+      <aside class="panel results" aria-live="polite">
+        <div class="result-top"><div class="result-label">Reference-calibrated stain level</div><div class="result-tag" id="resultTag">Ready</div></div>
+        <div class="coverage-wrap"><div class="coverage" id="coverage">—<span>%</span></div><div class="result-caption">Inside the selected box · supplied image = 50%</div><div class="threshold-status" id="thresholdStatus">At the 50% reference level or higher, the result changes to REPLACE.</div><div class="reference-chip"><img src="reference-50.png" alt="User-provided 50 percent replacement reference"><span><strong>50% replacement reference</strong><small>Replace when the boxed stain level reaches this example.</small></span></div></div>
+        <div class="meter" aria-label="White stain percentage; replacement threshold at 50%"><div class="meter-fill" id="meterFill"></div><span class="meter-threshold" title="Replace threshold: 50%"></span></div>
+        <div class="stat-list">
+          <div class="stat-row"><span>Detected pixels</span><strong id="detectedCount">—</strong></div>
+          <div class="stat-row"><span>Measured pixels</span><strong id="measuredCount">—</strong></div>
+          <div class="stat-row"><span>Masked pixels</span><strong id="excludedCount">—</strong></div>
+          <div class="stat-row"><span>Region size</span><strong id="regionSize">—</strong></div>
+        </div>
+        <div class="result-divider"></div>
+        <button class="download-button" id="download" disabled><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 17v2.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Download result PNG</button>
+        <p class="fineprint">The supplied boxed image is calibrated as 50%. The estimate compares bright, neutral pixels inside your box with that reference. Review the red overlay; printed details or glare may need masking.</p>
+      </aside>
+    </section>
+    <div class="bottom-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 19 6v5.8c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V6l7-2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Local processing · No automatic black-square detection · Nothing uploaded to a server</div>
+  </main>
+
+  <script>
+    (() => {
+      const DEFAULT_REGION = { x: 0.384, y: 0.526, w: 0.264, h: 0.154 };
+      const REPLACE_THRESHOLD = 50;
+      const REFERENCE_ROI = { x: 0.10, y: 0.35, w: 0.72, h: 0.53 };
+      const MAX_SIDE = 2000;
+      const MIN_REGION = 0.025;
+      const el = (id) => document.getElementById(id);
+      const canvas = el("scene");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const overlayCanvas = document.createElement("canvas");
+      const overlayCtx = overlayCanvas.getContext("2d");
+      const maskCanvas = document.createElement("canvas");
+      const maskCtx = maskCanvas.getContext("2d");
+      const referenceImage = new Image();
+      let referencePixels = null;
+      let referenceWidth = 0, referenceHeight = 0;
+      let bitmap = null;
+      let imagePixels = null;
+      let mask = null;
+      let width = 0, height = 0;
+      let region = { ...DEFAULT_REGION };
+      let mode = "region";
+      let erase = false;
+      let pointerAction = null;
+      let stats = { detected: 0, eligible: 0, masked: 0, regionPixels: 0 };
+      const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+      const fmt = (n) => new Intl.NumberFormat().format(n);
+
+      function referenceCoverage(cutoff, tolerance) {
+        if (!referencePixels) return 0;
+        const x0 = Math.round(REFERENCE_ROI.x * referenceWidth), y0 = Math.round(REFERENCE_ROI.y * referenceHeight);
+        const rw = Math.max(1, Math.round(REFERENCE_ROI.w * referenceWidth)), rh = Math.max(1, Math.round(REFERENCE_ROI.h * referenceHeight));
+        const pixels = referencePixels.data;
+        let detected = 0, measured = 0;
+        for (let y = y0; y < Math.min(referenceHeight, y0 + rh); y++) {
+          let i = (y * referenceWidth + x0) * 4;
+          for (let x = x0; x < Math.min(referenceWidth, x0 + rw); x++, i += 4) {
+            const red = pixels[i], green = pixels[i + 1], blue = pixels[i + 2];
+            const light = red * 0.299 + green * 0.587 + blue * 0.114;
+            if (light >= cutoff && Math.max(red, green, blue) - Math.min(red, green, blue) <= tolerance) detected++;
+            measured++;
+          }
+        }
+        return measured ? detected / measured * 100 : 0;
+      }
+      function estimatedPercent() {
+        if (!stats.eligible) return null;
+        const raw = stats.detected / stats.eligible * 100;
+        const reference = referenceCoverage(Number(el("brightness").value), Number(el("whiteness").value));
+        return reference > 0 ? Math.min(100, raw / reference * REPLACE_THRESHOLD) : null;
+      }
+
+      function regionPixels() {
+        const x = Math.round(region.x * width), y = Math.round(region.y * height);
+        const w = Math.max(1, Math.round(region.w * width)), h = Math.max(1, Math.round(region.h * height));
+        return { x: clamp(x, 0, width - 1), y: clamp(y, 0, height - 1), w: Math.min(w, width - x), h: Math.min(h, height - y) };
+      }
+      function analyze() {
+        if (!imagePixels || !mask) return;
+        const cutoff = Number(el("brightness").value);
+        const tolerance = Number(el("whiteness").value);
+        const r = regionPixels();
+        const out = new ImageData(width, height);
+        const src = imagePixels.data, dst = out.data;
+        let detected = 0, eligible = 0, masked = 0;
+        for (let y = r.y; y < r.y + r.h; y++) {
+          let idx = y * width + r.x;
+          for (let x = r.x; x < r.x + r.w; x++, idx++) {
+            const p = idx * 4;
+            if (mask[idx]) { masked++; dst[p] = 100; dst[p + 1] = 223; dst[p + 2] = 191; dst[p + 3] = 140; continue; }
+            eligible++;
+            const red = src[p], green = src[p + 1], blue = src[p + 2];
+            const max = Math.max(red, green, blue), min = Math.min(red, green, blue);
+            const brightness = red * 0.299 + green * 0.587 + blue * 0.114;
+            if (brightness >= cutoff && max - min <= tolerance) {
+              detected++;
+              dst[p] = 255; dst[p + 1] = 91; dst[p + 2] = 111; dst[p + 3] = 190;
+            }
+            if (mask[idx]) { dst[p] = 100; dst[p + 1] = 223; dst[p + 2] = 191; dst[p + 3] = 120; }
+          }
+        }
+        overlayCtx.putImageData(out, 0, 0);
+        stats = { detected, eligible, masked, regionPixels: r.w * r.h };
+        updateResults();
+        render();
+      }
+      function updateResults() {
+        const referenceAvailable = referenceCoverage(Number(el("brightness").value), Number(el("whiteness").value)) > 0;
+        const measuredArea = Boolean(imagePixels && stats.eligible > 0);
+        const pct = estimatedPercent() ?? 0;
+        const hasSample = Boolean(measuredArea && referenceAvailable);
+        const shouldReplace = Boolean(hasSample && pct >= REPLACE_THRESHOLD);
+        el("coverage").innerHTML = hasSample ? `${pct.toFixed(2)}<span>%</span>` : `—<span>%</span>`;
+        el("meterFill").style.width = `${Math.min(pct, 100)}%`;
+        el("detectedCount").textContent = imagePixels ? fmt(stats.detected) : "—";
+        el("measuredCount").textContent = imagePixels ? fmt(stats.eligible) : "—";
+        el("excludedCount").textContent = imagePixels ? fmt(stats.masked) : "—";
+        el("regionSize").textContent = imagePixels ? `${Math.round(region.w * 100)}% × ${Math.round(region.h * 100)}%` : "—";
+        el("maskCount").textContent = `${fmt(stats.masked)} masked`;
+        el("resultTag").textContent = !imagePixels ? "Ready" : !measuredArea ? "NO AREA" : !referenceAvailable ? "NO REFERENCE" : shouldReplace ? "REPLACE" : "BELOW 50%";
+        el("resultTag").classList.toggle("replace", shouldReplace);
+        el("resultTag").classList.toggle("below", Boolean(hasSample && !shouldReplace));
+        const frameStatus = el("frameStatus");
+        frameStatus.classList.toggle("ready", Boolean(imagePixels));
+        frameStatus.classList.toggle("replace", shouldReplace);
+        frameStatus.innerHTML = !imagePixels
+          ? '<span class="privacy-dot"></span> WAITING FOR IMAGE'
+          : !measuredArea
+            ? '<span class="privacy-dot"></span> NO AREA'
+            : !referenceAvailable
+              ? '<span class="privacy-dot"></span> NO 50% REFERENCE'
+              : `<span class="privacy-dot"></span> ${pct.toFixed(2)}% · ${shouldReplace ? "REPLACE" : "BELOW 50%"}`;
+        const status = el("thresholdStatus");
+        status.textContent = !imagePixels
+          ? `At the ${REPLACE_THRESHOLD}% reference level or higher, the result changes to REPLACE.`
+          : !measuredArea
+            ? "Unmask part of the box to calculate coverage."
+          : !referenceAvailable
+            ? "No white reference pixels match these settings. Lower brightness or increase white tolerance."
+          : shouldReplace
+            ? `${REPLACE_THRESHOLD}% threshold reached · Replace the felt.`
+            : `${(REPLACE_THRESHOLD - pct).toFixed(2)}% below the 50% replacement reference.`;
+        status.classList.toggle("replace", shouldReplace);
+        el("download").disabled = !hasSample;
+      }
+      function render() {
+        if (!bitmap) return;
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(bitmap, 0, 0, width, height);
+        const r = regionPixels();
+        ctx.fillStyle = "rgba(7,9,17,.58)";
+        ctx.fillRect(0, 0, width, r.y);
+        ctx.fillRect(0, r.y + r.h, width, height - r.y - r.h);
+        ctx.fillRect(0, r.y, r.x, r.h);
+        ctx.fillRect(r.x + r.w, r.y, width - r.x - r.w, r.h);
+        ctx.drawImage(overlayCanvas, 0, 0);
+
+        const scale = canvas.getBoundingClientRect().width / width || 1;
+        const line = 2 / scale;
+        ctx.save();
+        ctx.strokeStyle = "#a99bff";
+        ctx.lineWidth = line;
+        ctx.setLineDash([7 / scale, 4 / scale]);
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+        ctx.setLineDash([]);
+        const handle = 5.5 / scale;
+        const corners = [[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]];
+        corners.forEach(([x,y]) => {
+          ctx.fillStyle = "#f5f2ff"; ctx.strokeStyle = "#8475e9"; ctx.lineWidth = 1.5 / scale;
+          ctx.beginPath(); ctx.roundRect(x-handle,y-handle,handle*2,handle*2,2 / scale); ctx.fill(); ctx.stroke();
+        });
+        ctx.font = `600 ${Math.max(10, 11 / scale)}px system-ui, sans-serif`;
+        const label = "PLAYER / BANKER · INSPECTION AREA";
+        const pad = 8 / scale;
+        const labelW = ctx.measureText(label).width + pad * 2;
+        const labelH = 24 / scale;
+        ctx.fillStyle = "rgba(25,20,51,.9)";
+        ctx.beginPath(); ctx.roundRect(r.x, Math.max(0, r.y - labelH - 4 / scale), labelW, labelH, 5 / scale); ctx.fill();
+        ctx.fillStyle = "#e7e1ff";
+        ctx.fillText(label, r.x + pad, Math.max(labelH - 6 / scale, r.y - 8 / scale));
+        const value = estimatedPercent();
+        const percentage = value === null ? "—%" : `${value.toFixed(2)}%`;
+        ctx.font = `700 ${Math.min(11 / scale, Math.max(1, r.w / 8))}px system-ui, sans-serif`;
+        const badgePad = 7 / scale;
+        const badgeWidth = ctx.measureText(percentage).width + badgePad * 2;
+        const badgeHeight = 20 / scale;
+        const badgeX = Math.max(r.x, r.x + r.w - badgeWidth - 5 / scale);
+        ctx.fillStyle = value !== null && value >= REPLACE_THRESHOLD ? "rgba(111,35,49,.94)" : "rgba(27,23,53,.94)";
+        ctx.beginPath(); ctx.roundRect(badgeX, r.y + 5 / scale, badgeWidth, badgeHeight, 5 / scale); ctx.fill();
+        ctx.fillStyle = "#fff2f3";
+        ctx.fillText(percentage, badgeX + badgePad, r.y + 19 / scale);
+        ctx.restore();
+        if (mode === "paint") canvas.style.cursor = "crosshair";
+        else if (mode === "erase") canvas.style.cursor = "cell";
+        else canvas.style.cursor = "move";
+      }
+      function setEnabled(on) {
+        ["resetRegion","regionMode","paintMode","eraseMode","brushSize","clearMask","brightness","whiteness"].forEach(id => { el(id).disabled = !on; });
+      }
+      function loadFile(file) {
+        if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return;
+        const url = URL.createObjectURL(file);
+        const next = new Image();
+        next.onload = () => {
+          if (bitmap) URL.revokeObjectURL(bitmap.src);
+          bitmap = next;
+          const ratio = Math.min(1, MAX_SIDE / Math.max(next.naturalWidth, next.naturalHeight));
+          width = Math.max(1, Math.round(next.naturalWidth * ratio));
+          height = Math.max(1, Math.round(next.naturalHeight * ratio));
+          canvas.width = overlayCanvas.width = maskCanvas.width = width;
+          canvas.height = overlayCanvas.height = maskCanvas.height = height;
+          ctx.drawImage(bitmap, 0, 0, width, height);
+          imagePixels = ctx.getImageData(0, 0, width, height);
+          mask = new Uint8Array(width * height);
+          region = { ...DEFAULT_REGION };
+          el("emptyState").hidden = true;
+          canvas.style.display = "block";
+          el("fileMeta").textContent = `${file.name} · ${Math.round(file.size / 1024)} KB`;
+          el("imageDimensions").textContent = `${fmt(next.naturalWidth)} × ${fmt(next.naturalHeight)} px`;
+          el("canvasInstruction").textContent = "Drag the box to move it · drag a corner to resize";
+          el("frameStatus").classList.add("ready");
+          el("frameStatus").innerHTML = '<span class="privacy-dot"></span> IMAGE READY';
+          el("resultTag").textContent = "Estimate";
+          setEnabled(true);
+          analyze();
+        };
+        next.onerror = () => { URL.revokeObjectURL(url); el("fileMeta").textContent = "Could not open that image. Try PNG, JPG, or WebP."; };
+        next.src = url;
+      }
+      function coordinates(event) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: (event.clientX - rect.left) * width / rect.width, y: (event.clientY - rect.top) * height / rect.height, scale: width / rect.width };
+      }
+      function hitHandle(x, y) {
+        const r = regionPixels();
+        const size = 13 * (canvas.getBoundingClientRect().width ? width / canvas.getBoundingClientRect().width : 1);
+        const points = [[r.x,r.y,"nw"],[r.x+r.w,r.y,"ne"],[r.x,r.y+r.h,"sw"],[r.x+r.w,r.y+r.h,"se"]];
+        return points.find(([hx,hy]) => Math.abs(x-hx) <= size && Math.abs(y-hy) <= size)?.[2] || null;
+      }
+      function paintAt(x, y, scale) {
+        const radius = Math.max(2, Number(el("brushSize").value) * scale / 2);
+        const x0 = clamp(Math.floor(x-radius),0,width-1), x1 = clamp(Math.ceil(x+radius),0,width-1);
+        const y0 = clamp(Math.floor(y-radius),0,height-1), y1 = clamp(Math.ceil(y+radius),0,height-1);
+        for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+          if ((px-x)*(px-x) + (py-y)*(py-y) <= radius*radius) mask[py*width+px] = erase ? 0 : 1;
+        }
+      }
+      function moveRegion(action, x, y) {
+        const dx = (x-action.startX) / width, dy = (y-action.startY) / height;
+        if (action.kind === "move") {
+          region.x = clamp(action.initial.x + dx, 0, 1-region.w);
+          region.y = clamp(action.initial.y + dy, 0, 1-region.h);
+          return;
+        }
+        const x0 = action.initial.x, y0 = action.initial.y, x1 = x0+action.initial.w, y1 = y0+action.initial.h;
+        let left=x0, right=x1, top=y0, bottom=y1;
+        if (action.kind.includes("w")) left = clamp(x0+dx,0,x1-MIN_REGION);
+        if (action.kind.includes("e")) right = clamp(x1+dx,x0+MIN_REGION,1);
+        if (action.kind.includes("n")) top = clamp(y0+dy,0,y1-MIN_REGION);
+        if (action.kind.includes("s")) bottom = clamp(y1+dy,y0+MIN_REGION,1);
+        region = { x:left, y:top, w:right-left, h:bottom-top };
+      }
+      canvas.addEventListener("pointerdown", event => {
+        if (!bitmap) return;
+        const point = coordinates(event);
+        if (mode === "paint" || mode === "erase") {
+          erase = mode === "erase"; paintAt(point.x,point.y,point.scale); analyze();
+          pointerAction = { kind:"mask", scale:point.scale };
+        } else {
+          const handle = hitHandle(point.x,point.y);
+          const r = regionPixels();
+          const inside = point.x >= r.x && point.x <= r.x+r.w && point.y >= r.y && point.y <= r.y+r.h;
+          if (!handle && !inside) return;
+          pointerAction = { kind:handle || "move", startX:point.x, startY:point.y, initial:{...region} };
+        }
+        canvas.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+      canvas.addEventListener("pointermove", event => {
+        if (!pointerAction) return;
+        const point = coordinates(event);
+        if (pointerAction.kind === "mask") { paintAt(point.x,point.y,pointerAction.scale); analyze(); }
+        else { moveRegion(pointerAction,point.x,point.y); analyze(); }
+      });
+      const stop = () => { pointerAction = null; };
+      canvas.addEventListener("pointerup", stop);
+      canvas.addEventListener("pointercancel", stop);
+      el("chooseFile").addEventListener("click", () => el("fileInput").click());
+      el("fileInput").addEventListener("change", event => loadFile(event.target.files[0]));
+      const drop = el("dropZone");
+      ["dragenter","dragover"].forEach(type => drop.addEventListener(type, event => { event.preventDefault(); drop.classList.add("dragging"); }));
+      ["dragleave","drop"].forEach(type => drop.addEventListener(type, event => { event.preventDefault(); drop.classList.remove("dragging"); }));
+      drop.addEventListener("drop", event => loadFile(event.dataTransfer.files[0]));
+      el("resetRegion").addEventListener("click", () => { region = {...DEFAULT_REGION}; analyze(); });
+      el("paintMode").addEventListener("click", () => { mode="paint"; el("paintMode").classList.add("active"); el("eraseMode").classList.remove("active"); el("paintMode").setAttribute("aria-pressed","true"); el("eraseMode").setAttribute("aria-pressed","false"); render(); });
+      el("eraseMode").addEventListener("click", () => { mode="erase"; el("eraseMode").classList.add("active"); el("paintMode").classList.remove("active"); el("eraseMode").setAttribute("aria-pressed","true"); el("paintMode").setAttribute("aria-pressed","false"); render(); });
+      function activateMode(next) {
+        mode = next;
+        [["regionMode","region"],["paintMode","paint"],["eraseMode","erase"]].forEach(([id,value]) => {
+          el(id).classList.toggle("active", next === value);
+          el(id).setAttribute("aria-pressed", String(next === value));
+        });
+        render();
+      }
+      el("regionMode").addEventListener("click", () => activateMode("region"));
+      el("paintMode").addEventListener("click", () => activateMode("paint"));
+      el("eraseMode").addEventListener("click", () => activateMode("erase"));
+      ["brightness","whiteness"].forEach(id => el(id).addEventListener("input", () => { el(id+"Value").textContent = el(id).value; analyze(); }));
+      el("brushSize").addEventListener("input", () => el("brushValue").textContent = `${el("brushSize").value} px`);
+      el("clearMask").addEventListener("click", () => { if (mask) { mask.fill(0); analyze(); } });
+      el("download").addEventListener("click", () => {
+        const estimate = estimatedPercent();
+        if (!bitmap || estimate === null) return;
+        render();
+        const r = regionPixels();
+        ctx.save();
+        ctx.strokeStyle = "#b8aaff"; ctx.lineWidth = Math.max(2,width/900); ctx.setLineDash([10,6]); ctx.strokeRect(r.x,r.y,r.w,r.h); ctx.restore();
+        const pct = estimate.toFixed(2);
+        const headerHeight = Math.max(72, Math.round(width * .055));
+        const margin = Math.max(14, Math.round(width * .025));
+        const reportCanvas = document.createElement("canvas");
+        reportCanvas.width = width; reportCanvas.height = height + headerHeight;
+        const reportCtx = reportCanvas.getContext("2d");
+        reportCtx.fillStyle = "#111321";
+        reportCtx.fillRect(0, 0, width, headerHeight);
+        reportCtx.fillStyle = "#f1efff";
+        reportCtx.font = `700 ${Math.max(15, Math.round(width / 86))}px system-ui, sans-serif`;
+        reportCtx.fillText(`WHITE STAIN ESTIMATE · ${pct}%`, margin, headerHeight * .42);
+        reportCtx.fillStyle = "#adb1c4";
+        reportCtx.font = `500 ${Math.max(10, Math.round(width / 170))}px system-ui, sans-serif`;
+        reportCtx.fillText(`${fmt(stats.detected)} detected / ${fmt(stats.eligible)} measured · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value} · ${REPLACE_THRESHOLD}% reference = REPLACE`, margin, headerHeight * .74);
+        reportCtx.drawImage(canvas, 0, headerHeight);
+        const link = document.createElement("a");
+        link.download = `white-stain-inspection-${pct}pct.png`;
+        link.href = reportCanvas.toDataURL("image/png");
+        link.click();
+        render();
+      });
+      window.addEventListener("resize", () => { if (bitmap) render(); });
+      activateMode("region");
+      setEnabled(false);
+      updateResults();
+      referenceImage.onload = () => {
+        referenceWidth = referenceImage.naturalWidth;
+        referenceHeight = referenceImage.naturalHeight;
+        const referenceCanvas = document.createElement("canvas");
+        referenceCanvas.width = referenceWidth; referenceCanvas.height = referenceHeight;
+        const referenceCtx = referenceCanvas.getContext("2d", { willReadFrequently: true });
+        referenceCtx.drawImage(referenceImage, 0, 0);
+        referencePixels = referenceCtx.getImageData(0, 0, referenceWidth, referenceHeight);
+        if (imagePixels) analyze();
+      };
+      referenceImage.onerror = () => { referencePixels = null; };
+      referenceImage.src = "reference-50.png";
+    })();
+  </script>
+</body>
+</html>
