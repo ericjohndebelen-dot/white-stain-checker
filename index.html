@@ -217,7 +217,7 @@
           <button class="tool-button active" id="paintMode" aria-pressed="true" disabled>+ Exclude</button>
           <button class="tool-button erase" id="eraseMode" aria-pressed="false" disabled>− Erase mask</button>
         </div>
-        <p class="helper-text">Rectangular card faces are filtered out. Brush over any partly visible card, white lettering, or reflection that overlaps the felt.</p>
+        <p class="helper-text">Thin or colored table printing and rectangular card faces are filtered automatically. Brush over any print, card edge, or reflection that remains.</p>
         <div class="brush-controls">
           <label class="control-label" for="brushSize">Brush size <span class="range-value" id="brushValue">28 px</span></label>
           <input id="brushSize" type="range" min="8" max="64" value="28" disabled>
@@ -268,7 +268,7 @@
         </div>
         <div class="result-divider"></div>
         <button class="download-button" id="download" disabled><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 17v2.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Download result PNG</button>
-        <p class="fineprint">Six replacement photos were measured locally at default sensitivity 150/100. Their raw tablecloth coverage ranged from 2.58% to 7.33%, and this range maps to 50% REPLACE. Only numeric measurements are stored here; the photos are not included. Card-shaped areas are ignored. Changing sensitivity changes the estimate; brush over partial cards, lettering, or glare.</p>
+        <p class="fineprint">Six replacement photos were measured locally at default sensitivity 150/100. After filtering thin and colored table printing, their raw pale-patch scores ranged from 0.31% to 4.02%; that range maps to 50% REPLACE. Only numeric measurements are stored here; the photos are not included. Card-shaped areas are ignored. Changing sensitivity changes the estimate; exclude remaining printing or glare with the brush.</p>
       </aside>
     </section>
     <div class="bottom-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 19 6v5.8c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V6l7-2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Local processing · No automatic black-square detection · Nothing uploaded to a server</div>
@@ -278,7 +278,7 @@
     (() => {
       const DEFAULT_REGION = { x: 0.384, y: 0.526, w: 0.264, h: 0.154 };
       const REPLACE_THRESHOLD = 50;
-      const REPLACEMENT_REFERENCE_SCORES = [7.32759, 4.12213, 2.57582, 2.61304, 2.73543, 6.64692];
+      const REPLACEMENT_REFERENCE_SCORES = [4.01799, 0.48317, 0.31079, 0.71816, 0.36185, 3.65291];
       const REFERENCE_RAW_LOW = Math.min(...REPLACEMENT_REFERENCE_SCORES) * 0.90;
       const REFERENCE_RAW_HIGH = Math.max(...REPLACEMENT_REFERENCE_SCORES) * 1.10;
       const REFERENCE_SAMPLE_COUNT = REPLACEMENT_REFERENCE_SCORES.length;
@@ -412,11 +412,19 @@ function findRectangularCards(candidateMask, w, h) {
           }
         }
         const candidateMask = new Uint8Array(w * h);
+        const candidateStride = w + 1;
+        const candidateIntegral = new Uint32Array((w + 1) * (h + 1));
         for (let y = 0; y < h; y++) {
+          let rowSum = 0;
           let p = ((y0 + y) * pixelWidth + x0) * 4;
           for (let x = 0; x < w; x++, p += 4) {
             const feature = colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]);
-            candidateMask[y * w + x] = feature.brightness >= cutoff && feature.spread <= tolerance ? 1 : 0;
+            const clothLike = feature.saturation <= 0.16 || hueDistance(feature.hue, dominantHue) <= 38;
+            const local = y * w + x;
+            const candidate = feature.brightness >= cutoff && feature.spread <= tolerance && clothLike ? 1 : 0;
+            candidateMask[local] = candidate;
+            rowSum += candidate;
+            candidateIntegral[(y + 1) * candidateStride + x + 1] = candidateIntegral[y * candidateStride + x + 1] + rowSum;
           }
         }
         const cardMask = findRectangularCards(candidateMask, w, h);
@@ -447,9 +455,18 @@ function findRectangularCards(candidateMask, w, h) {
             const feltNearby = d - b - c + a;
             const localArea = (right - left + 1) * (bottom - top + 1);
             const hasFeltContext = feltNearby >= Math.max(4, Math.round(localArea * 0.18));
-            if (!felt[local] && !(candidate && hasFeltContext)) continue;
+            const pLeft = Math.max(0, x - 2), pRight = Math.min(w - 1, x + 2);
+            const pTop = Math.max(0, y - 2), pBottom = Math.min(h - 1, y + 2);
+            const pArea = (pRight - pLeft + 1) * (pBottom - pTop + 1);
+            const ca = candidateIntegral[pTop * candidateStride + pLeft];
+            const cb = candidateIntegral[pTop * candidateStride + pRight + 1];
+            const cc = candidateIntegral[(pBottom + 1) * candidateStride + pLeft];
+            const cd = candidateIntegral[(pBottom + 1) * candidateStride + pRight + 1];
+            const localCandidateCount = cd - cb - cc + ca;
+            const broadPalePatch = candidate && localCandidateCount >= Math.max(1, Math.round(pArea * 0.60));
+            if (!felt[local] && !(broadPalePatch && hasFeltContext)) continue;
             eligible++;
-            if (candidate && hasFeltContext) {
+            if (broadPalePatch && hasFeltContext) {
               detected++;
               if (overlayData) { overlayData[p] = 255; overlayData[p + 1] = 91; overlayData[p + 2] = 111; overlayData[p + 3] = 190; }
             }
