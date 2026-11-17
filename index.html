@@ -125,7 +125,7 @@
     .threshold-status { margin-top:10px; padding:8px 9px; border:1px solid rgba(156,139,255,.18); border-radius:9px; color:#c8c2ef; background:rgba(156,139,255,.055); font-size:9px; line-height:1.45; }
     .threshold-status.replace { color:#ffc0c7; border-color:rgba(255,102,117,.28); background:rgba(255,102,117,.08); }
     .reference-chip { display:flex; align-items:center; gap:9px; margin-top:11px; padding:8px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.025); }
-    .reference-chip img { width:62px; height:34px; flex:0 0 auto; border:1px solid rgba(255,255,255,.12); border-radius:6px; object-fit:cover; }
+    .reference-count { width:34px; height:34px; flex:0 0 auto; display:grid; place-items:center; border:1px solid rgba(156,139,255,.3); border-radius:9px; color:#d7d0ff; background:rgba(156,139,255,.12); font-size:13px; font-weight:750; }
     .reference-chip strong, .reference-chip small { display:block; }
     .reference-chip strong { color:#e7e4fb; font-size:9px; font-weight:700; }
     .reference-chip small { margin-top:3px; color:var(--muted); font-size:8px; line-height:1.35; }
@@ -227,13 +227,13 @@
         <div class="divider"></div>
         <h2 class="section-heading"><span class="step">04</span> Tablecloth stain sensitivity</h2>
         <div class="range-wrap">
-          <label class="control-label" for="brightness">Brightness cutoff <span class="range-value" id="brightnessValue">190</span></label>
-          <input id="brightness" type="range" min="130" max="250" value="190" disabled>
+          <label class="control-label" for="brightness">Brightness cutoff <span class="range-value" id="brightnessValue">150</span></label>
+          <input id="brightness" type="range" min="130" max="250" value="150" disabled>
           <div class="range-caption"><span>More pixels</span><span>Brighter only</span></div>
         </div>
         <div class="range-wrap">
-          <label class="control-label" for="whiteness">White tolerance <span class="range-value" id="whitenessValue">65</span></label>
-          <input id="whiteness" type="range" min="10" max="120" value="65" disabled>
+          <label class="control-label" for="whiteness">White tolerance <span class="range-value" id="whitenessValue">100</span></label>
+          <input id="whiteness" type="range" min="10" max="120" value="100" disabled>
           <div class="range-caption"><span>Pure white only</span><span>Allow paler colors</span></div>
         </div>
       </aside>
@@ -256,8 +256,8 @@
       </section>
 
       <aside class="panel results" aria-live="polite">
-        <div class="result-top"><div class="result-label">Reference-calibrated stain level</div><div class="result-tag" id="resultTag">Ready</div></div>
-        <div class="coverage-wrap"><div class="coverage" id="coverage">—<span>%</span></div><div class="result-caption">On tablecloth pixels inside the box · supplied image = 50%</div><div class="threshold-status" id="thresholdStatus">At the 50% reference level or higher, the result changes to REPLACE.</div><div class="reference-chip"><img src="reference-50.png" alt="User-provided 50 percent replacement reference"><span><strong>50% replacement reference</strong><small>Replace when the boxed stain level reaches this example.</small></span></div></div>
+        <div class="result-top"><div class="result-label">Six-photo calibrated stain level</div><div class="result-tag" id="resultTag">Ready</div></div>
+        <div class="coverage-wrap"><div class="coverage" id="coverage">—<span>%</span></div><div class="result-caption">On tablecloth pixels inside the box · six replace references = 50%</div><div class="threshold-status" id="thresholdStatus">At the 50% reference level or higher, the result changes to REPLACE.</div><div class="reference-chip"><span class="reference-count">6</span><span><strong>Six-photo replacement reference</strong><small>Measured raw tablecloth range 2.58%–7.33% maps to 50% REPLACE; photos stay private.</small></span></div></div>
         <div class="meter" aria-label="White stain percentage; replacement threshold at 50%"><div class="meter-fill" id="meterFill"></div><span class="meter-threshold" title="Replace threshold: 50%"></span></div>
         <div class="stat-list">
           <div class="stat-row"><span>Detected pixels</span><strong id="detectedCount">—</strong></div>
@@ -268,7 +268,7 @@
         </div>
         <div class="result-divider"></div>
         <button class="download-button" id="download" disabled><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 17v2.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Download result PNG</button>
-        <p class="fineprint">The user-marked example is calibrated as 50%. Card-shaped areas are automatically excluded. Only pale pixels supported by the tablecloth color inside your box are counted; brush over partial cards, lettering, or glare that overlaps the felt.</p>
+        <p class="fineprint">Six replacement photos were measured locally at default sensitivity 150/100. Their raw tablecloth coverage ranged from 2.58% to 7.33%, and this range maps to 50% REPLACE. Only numeric measurements are stored here; the photos are not included. Card-shaped areas are ignored. Changing sensitivity changes the estimate; brush over partial cards, lettering, or glare.</p>
       </aside>
     </section>
     <div class="bottom-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 19 6v5.8c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V6l7-2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Local processing · No automatic black-square detection · Nothing uploaded to a server</div>
@@ -278,7 +278,10 @@
     (() => {
       const DEFAULT_REGION = { x: 0.384, y: 0.526, w: 0.264, h: 0.154 };
       const REPLACE_THRESHOLD = 50;
-      const REFERENCE_ROI = { x: 0.10, y: 0.35, w: 0.72, h: 0.53 };
+      const REPLACEMENT_REFERENCE_SCORES = [7.32759, 4.12213, 2.57582, 2.61304, 2.73543, 6.64692];
+      const REFERENCE_RAW_LOW = Math.min(...REPLACEMENT_REFERENCE_SCORES) * 0.90;
+      const REFERENCE_RAW_HIGH = Math.max(...REPLACEMENT_REFERENCE_SCORES) * 1.10;
+      const REFERENCE_SAMPLE_COUNT = REPLACEMENT_REFERENCE_SCORES.length;
       const MAX_SIDE = 2000;
       const MIN_REGION = 0.025;
       const el = (id) => document.getElementById(id);
@@ -288,9 +291,6 @@
       const overlayCtx = overlayCanvas.getContext("2d");
       const maskCanvas = document.createElement("canvas");
       const maskCtx = maskCanvas.getContext("2d");
-      const referenceImage = new Image();
-      let referencePixels = null;
-      let referenceWidth = 0, referenceHeight = 0;
       let bitmap = null;
       let imagePixels = null;
       let mask = null;
@@ -457,18 +457,13 @@ function findRectangularCards(candidateMask, w, h) {
         }
         return { detected, eligible, masked, cardExcluded, regionPixels: w * h };
       }
-            function referenceCoverage(cutoff, tolerance) {
-        if (!referencePixels) return 0;
-        const x0 = Math.round(REFERENCE_ROI.x * referenceWidth), y0 = Math.round(REFERENCE_ROI.y * referenceHeight);
-        const rw = Math.max(1, Math.round(REFERENCE_ROI.w * referenceWidth)), rh = Math.max(1, Math.round(REFERENCE_ROI.h * referenceHeight));
-        const scan = scanRegion(referencePixels.data, referenceWidth, referenceHeight, { x: x0, y: y0, w: rw, h: rh }, cutoff, tolerance, null, null);
-        return scan.eligible ? scan.detected / scan.eligible * 100 : 0;
-      }
-            function estimatedPercent() {
+      function estimatedPercent() {
         if (!stats.eligible) return null;
         const raw = stats.detected / stats.eligible * 100;
-        const reference = referenceCoverage(Number(el("brightness").value), Number(el("whiteness").value));
-        return reference > 0 ? Math.min(100, raw / reference * REPLACE_THRESHOLD) : null;
+        if (raw < REFERENCE_RAW_LOW) return clamp(raw / REFERENCE_RAW_LOW * REPLACE_THRESHOLD, 0, REPLACE_THRESHOLD);
+        if (raw <= REFERENCE_RAW_HIGH) return REPLACE_THRESHOLD;
+        const span = Math.max(REFERENCE_RAW_HIGH - REFERENCE_RAW_LOW, REFERENCE_RAW_HIGH * 0.1);
+        return clamp(REPLACE_THRESHOLD + (raw - REFERENCE_RAW_HIGH) / span * REPLACE_THRESHOLD, REPLACE_THRESHOLD, 100);
       }
 
       function regionPixels() {
@@ -488,7 +483,7 @@ function findRectangularCards(candidateMask, w, h) {
         render();
       }
       function updateResults() {
-        const referenceAvailable = referenceCoverage(Number(el("brightness").value), Number(el("whiteness").value)) > 0;
+        const referenceAvailable = REFERENCE_RAW_LOW > 0 && REFERENCE_RAW_HIGH > REFERENCE_RAW_LOW;
         const measuredArea = Boolean(imagePixels && stats.eligible > 0);
         const pct = estimatedPercent() ?? 0;
         const hasSample = Boolean(measuredArea && referenceAvailable);
@@ -520,7 +515,7 @@ function findRectangularCards(candidateMask, w, h) {
           : !measuredArea
             ? "No tablecloth color found inside the box. Move the frame onto the felt or change the area."
           : !referenceAvailable
-            ? "No tablecloth pixels in the reference area match these settings. Adjust the sensitivity."
+            ? "The six-photo calibration range is unavailable. Reset the sensitivity controls."
           : shouldReplace
             ? `${REPLACE_THRESHOLD}% threshold reached · Replace the felt.`
             : `${(REPLACE_THRESHOLD - pct).toFixed(2)}% below the 50% replacement reference.`;
@@ -554,7 +549,7 @@ function findRectangularCards(candidateMask, w, h) {
           ctx.beginPath(); ctx.roundRect(x-handle,y-handle,handle*2,handle*2,2 / scale); ctx.fill(); ctx.stroke();
         });
         ctx.font = `600 ${Math.max(10, 11 / scale)}px system-ui, sans-serif`;
-        const label = "PLAYER / BANKER · INSPECTION AREA";
+        const label = "WHITE STAIN INSPECTION";
         const pad = 8 / scale;
         const labelW = ctx.measureText(label).width + pad * 2;
         const labelH = 24 / scale;
@@ -712,7 +707,7 @@ function findRectangularCards(candidateMask, w, h) {
         reportCtx.fillText(`WHITE STAIN ESTIMATE · ${pct}%`, margin, headerHeight * .42);
         reportCtx.fillStyle = "#adb1c4";
         reportCtx.font = `500 ${Math.max(10, Math.round(width / 170))}px system-ui, sans-serif`;
-        reportCtx.fillText(`${fmt(stats.detected)} detected / ${fmt(stats.eligible)} felt pixels · ${fmt(stats.cardExcluded)} card pixels ignored · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value} · ${REPLACE_THRESHOLD}% reference = REPLACE`, margin, headerHeight * .74);
+        reportCtx.fillText(`${fmt(stats.detected)} detected / ${fmt(stats.eligible)} felt pixels · ${fmt(stats.cardExcluded)} card pixels ignored · ${REFERENCE_SAMPLE_COUNT} samples = 50% REPLACE · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value} · ${REPLACE_THRESHOLD}% reference = REPLACE`, margin, headerHeight * .74);
         reportCtx.drawImage(canvas, 0, headerHeight);
         const link = document.createElement("a");
         link.download = `white-stain-inspection-${pct}pct.png`;
@@ -724,18 +719,6 @@ function findRectangularCards(candidateMask, w, h) {
       activateMode("region");
       setEnabled(false);
       updateResults();
-      referenceImage.onload = () => {
-        referenceWidth = referenceImage.naturalWidth;
-        referenceHeight = referenceImage.naturalHeight;
-        const referenceCanvas = document.createElement("canvas");
-        referenceCanvas.width = referenceWidth; referenceCanvas.height = referenceHeight;
-        const referenceCtx = referenceCanvas.getContext("2d", { willReadFrequently: true });
-        referenceCtx.drawImage(referenceImage, 0, 0);
-        referencePixels = referenceCtx.getImageData(0, 0, referenceWidth, referenceHeight);
-        if (imagePixels) analyze();
-      };
-      referenceImage.onerror = () => { referencePixels = null; };
-      referenceImage.src = "reference-50.png";
     })();
   </script>
 </body>
