@@ -109,7 +109,6 @@
     .swatch { width:8px; height:8px; border-radius:3px; }
     .swatch.stain { background:var(--red); box-shadow:0 0 8px rgba(255,102,117,.4); }
     .swatch.mask { background:var(--mint); }
-    .swatch.object { background:#60a8ff; box-shadow:0 0 8px rgba(96,168,255,.35); }
     .results { padding:18px; }
     .result-label { color:var(--muted); font-size:10px; font-weight:600; }
     .result-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -252,7 +251,7 @@
           </div>
           <canvas id="scene" aria-label="Uploaded image with editable inspection area"></canvas>
         </div>
-        <div class="canvas-foot"><div class="legend"><span class="legend-item"><span class="swatch stain"></span>Detected stain</span><span class="legend-item"><span class="swatch object"></span>Card ignored</span><span class="legend-item"><span class="swatch mask"></span>Manual mask</span></div><span id="imageDimensions">PNG · JPG · WebP</span></div>
+        <div class="canvas-foot"><div class="legend"><span class="legend-item"><span class="swatch stain"></span>Detected stain</span><span class="legend-item"><span class="swatch mask"></span>Manual mask</span></div><span id="imageDimensions">PNG · JPG · WebP</span></div>
       </section>
 
       <aside class="panel results" aria-live="polite">
