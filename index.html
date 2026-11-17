@@ -185,8 +185,8 @@
 
     <section class="intro">
       <div>
-        <h1>Inspect the PLAYER / BANKER zone</h1>
-        <p>Highlight and estimate white dirt or stains on the baccarat felt.</p>
+        <h1>Inspect the tablecloth</h1>
+        <p>Detect pale stains only on the tablecloth inside the inspection box.</p>
       </div>
       <div class="intro-note">The reference area is preselected. Move or resize it if the camera framing changes.</div>
     </section>
@@ -205,7 +205,7 @@
 
         <div class="divider"></div>
         <h2 class="section-heading"><span class="step">02</span> Adjust the area</h2>
-        <div class="area-preview"><span>PLAYER / BANKER reference zone</span><span class="area-badge">PRESET</span></div>
+        <div class="area-preview"><span>Tablecloth inspection zone</span><span class="area-badge">PRESET</span></div>
         <p class="helper-text">Drag the box to move it. Drag a corner to resize it.</p>
         <button class="secondary-button" id="resetRegion" disabled>Reset to default area</button>
 
@@ -216,7 +216,7 @@
           <button class="tool-button active" id="paintMode" aria-pressed="true" disabled>+ Exclude</button>
           <button class="tool-button erase" id="eraseMode" aria-pressed="false" disabled>− Erase mask</button>
         </div>
-        <p class="helper-text">Brush over cards, printed markings, or reflections to exclude them from the count.</p>
+        <p class="helper-text">The felt-color filter ignores large objects and colored print. Brush over white lettering or reflections that overlap the cloth.</p>
         <div class="brush-controls">
           <label class="control-label" for="brushSize">Brush size <span class="range-value" id="brushValue">28 px</span></label>
           <input id="brushSize" type="range" min="8" max="64" value="28" disabled>
@@ -224,7 +224,7 @@
         </div>
 
         <div class="divider"></div>
-        <h2 class="section-heading"><span class="step">04</span> Detection sensitivity</h2>
+        <h2 class="section-heading"><span class="step">04</span> Tablecloth stain sensitivity</h2>
         <div class="range-wrap">
           <label class="control-label" for="brightness">Brightness cutoff <span class="range-value" id="brightnessValue">190</span></label>
           <input id="brightness" type="range" min="130" max="250" value="190" disabled>
@@ -256,17 +256,17 @@
 
       <aside class="panel results" aria-live="polite">
         <div class="result-top"><div class="result-label">Reference-calibrated stain level</div><div class="result-tag" id="resultTag">Ready</div></div>
-        <div class="coverage-wrap"><div class="coverage" id="coverage">—<span>%</span></div><div class="result-caption">Inside the selected box · supplied image = 50%</div><div class="threshold-status" id="thresholdStatus">At the 50% reference level or higher, the result changes to REPLACE.</div><div class="reference-chip"><img src="reference-50.png" alt="User-provided 50 percent replacement reference"><span><strong>50% replacement reference</strong><small>Replace when the boxed stain level reaches this example.</small></span></div></div>
+        <div class="coverage-wrap"><div class="coverage" id="coverage">—<span>%</span></div><div class="result-caption">On tablecloth pixels inside the box · supplied image = 50%</div><div class="threshold-status" id="thresholdStatus">At the 50% reference level or higher, the result changes to REPLACE.</div><div class="reference-chip"><img src="reference-50.png" alt="User-provided 50 percent replacement reference"><span><strong>50% replacement reference</strong><small>Replace when the boxed stain level reaches this example.</small></span></div></div>
         <div class="meter" aria-label="White stain percentage; replacement threshold at 50%"><div class="meter-fill" id="meterFill"></div><span class="meter-threshold" title="Replace threshold: 50%"></span></div>
         <div class="stat-list">
           <div class="stat-row"><span>Detected pixels</span><strong id="detectedCount">—</strong></div>
-          <div class="stat-row"><span>Measured pixels</span><strong id="measuredCount">—</strong></div>
+          <div class="stat-row"><span>Tablecloth pixels</span><strong id="measuredCount">—</strong></div>
           <div class="stat-row"><span>Masked pixels</span><strong id="excludedCount">—</strong></div>
           <div class="stat-row"><span>Region size</span><strong id="regionSize">—</strong></div>
         </div>
         <div class="result-divider"></div>
         <button class="download-button" id="download" disabled><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 17v2.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Download result PNG</button>
-        <p class="fineprint">The supplied boxed image is calibrated as 50%. The estimate compares bright, neutral pixels inside your box with that reference. Review the red overlay; printed details or glare may need masking.</p>
+        <p class="fineprint">The user-marked example is calibrated as 50%. Only pale pixels supported by the tablecloth color inside your box are counted. White text, remaining card edges, or glare can be excluded with the brush.</p>
       </aside>
     </section>
     <div class="bottom-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 19 6v5.8c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V6l7-2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Local processing · No automatic black-square detection · Nothing uploaded to a server</div>
@@ -301,24 +301,106 @@
       const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
       const fmt = (n) => new Intl.NumberFormat().format(n);
 
+      function colorFeatures(red, green, blue) {
+        const maximum = Math.max(red, green, blue);
+        const minimum = Math.min(red, green, blue);
+        const spread = maximum - minimum;
+        let hue = -1;
+        if (spread > 0) {
+          if (maximum === red) hue = 60 * (((green - blue) / spread) % 6);
+          else if (maximum === green) hue = 60 * ((blue - red) / spread + 2);
+          else hue = 60 * ((red - green) / spread + 4);
+          if (hue < 0) hue += 360;
+        }
+        return { hue, saturation: maximum ? spread / maximum : 0, brightness: red * 0.299 + green * 0.587 + blue * 0.114, spread };
+      }
+      function hueDistance(first, second) {
+        const difference = Math.abs(first - second) % 360;
+        return Math.min(difference, 360 - difference);
+      }
+      function isTableclothColor(feature, dominantHue) {
+        return feature.hue >= 0 && feature.saturation >= 0.16 &&
+          feature.brightness >= 18 && feature.brightness <= 235 &&
+          hueDistance(feature.hue, dominantHue) <= 38;
+      }
+      function scanRegion(pixels, pixelWidth, pixelHeight, box, cutoff, tolerance, exclusionMask, overlayData) {
+        const x0 = clamp(Math.round(box.x), 0, pixelWidth - 1);
+        const y0 = clamp(Math.round(box.y), 0, pixelHeight - 1);
+        const w = Math.max(1, Math.min(Math.round(box.w), pixelWidth - x0));
+        const h = Math.max(1, Math.min(Math.round(box.h), pixelHeight - y0));
+        const hueCounts = new Uint32Array(36);
+        let coloredPixels = 0;
+        for (let y = 0; y < h; y++) {
+          let p = ((y0 + y) * pixelWidth + x0) * 4;
+          for (let x = 0; x < w; x++, p += 4) {
+            const feature = colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]);
+            if (feature.hue >= 0 && feature.saturation >= 0.16 && feature.brightness >= 18 && feature.brightness <= 235) {
+              hueCounts[Math.floor(feature.hue / 10) % 36]++;
+              coloredPixels++;
+            }
+          }
+        }
+        let dominantBin = 0, dominantCount = 0;
+        for (let i = 0; i < hueCounts.length; i++) {
+          if (hueCounts[i] > dominantCount) { dominantCount = hueCounts[i]; dominantBin = i; }
+        }
+        const emptyStats = { detected: 0, eligible: 0, masked: 0, regionPixels: w * h };
+        if (!coloredPixels || dominantCount < Math.max(12, Math.floor(w * h * 0.015))) return emptyStats;
+        const dominantHue = dominantBin * 10 + 5;
+        const felt = new Uint8Array(w * h);
+        const stride = w + 1;
+        const integral = new Uint32Array((w + 1) * (h + 1));
+        for (let y = 0; y < h; y++) {
+          let rowSum = 0;
+          let p = ((y0 + y) * pixelWidth + x0) * 4;
+          for (let x = 0; x < w; x++, p += 4) {
+            const isFelt = isTableclothColor(colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]), dominantHue);
+            const local = y * w + x;
+            felt[local] = isFelt ? 1 : 0;
+            rowSum += isFelt ? 1 : 0;
+            integral[(y + 1) * stride + x + 1] = integral[y * stride + x + 1] + rowSum;
+          }
+        }
+        const radius = Math.max(3, Math.min(18, Math.round(Math.min(w, h) * 0.12)));
+        let detected = 0, eligible = 0, masked = 0;
+        for (let y = 0; y < h; y++) {
+          let sourceIndex = (y0 + y) * pixelWidth + x0;
+          for (let x = 0; x < w; x++, sourceIndex++) {
+            const p = sourceIndex * 4;
+            if (exclusionMask && exclusionMask[sourceIndex]) {
+              masked++;
+              if (overlayData) { overlayData[p] = 100; overlayData[p + 1] = 223; overlayData[p + 2] = 191; overlayData[p + 3] = 140; }
+              continue;
+            }
+            const feature = colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]);
+            const candidate = feature.brightness >= cutoff && feature.spread <= tolerance;
+            const left = Math.max(0, x - radius), right = Math.min(w - 1, x + radius);
+            const top = Math.max(0, y - radius), bottom = Math.min(h - 1, y + radius);
+            const a = integral[top * stride + left];
+            const b = integral[top * stride + right + 1];
+            const c = integral[(bottom + 1) * stride + left];
+            const d = integral[(bottom + 1) * stride + right + 1];
+            const feltNearby = d - b - c + a;
+            const localArea = (right - left + 1) * (bottom - top + 1);
+            const hasFeltContext = feltNearby >= Math.max(4, Math.round(localArea * 0.18));
+            if (!felt[y * w + x] && !(candidate && hasFeltContext)) continue;
+            eligible++;
+            if (candidate && hasFeltContext) {
+              detected++;
+              if (overlayData) { overlayData[p] = 255; overlayData[p + 1] = 91; overlayData[p + 2] = 111; overlayData[p + 3] = 190; }
+            }
+          }
+        }
+        return { detected, eligible, masked, regionPixels: w * h };
+      }
       function referenceCoverage(cutoff, tolerance) {
         if (!referencePixels) return 0;
         const x0 = Math.round(REFERENCE_ROI.x * referenceWidth), y0 = Math.round(REFERENCE_ROI.y * referenceHeight);
         const rw = Math.max(1, Math.round(REFERENCE_ROI.w * referenceWidth)), rh = Math.max(1, Math.round(REFERENCE_ROI.h * referenceHeight));
-        const pixels = referencePixels.data;
-        let detected = 0, measured = 0;
-        for (let y = y0; y < Math.min(referenceHeight, y0 + rh); y++) {
-          let i = (y * referenceWidth + x0) * 4;
-          for (let x = x0; x < Math.min(referenceWidth, x0 + rw); x++, i += 4) {
-            const red = pixels[i], green = pixels[i + 1], blue = pixels[i + 2];
-            const light = red * 0.299 + green * 0.587 + blue * 0.114;
-            if (light >= cutoff && Math.max(red, green, blue) - Math.min(red, green, blue) <= tolerance) detected++;
-            measured++;
-          }
-        }
-        return measured ? detected / measured * 100 : 0;
+        const scan = scanRegion(referencePixels.data, referenceWidth, referenceHeight, { x: x0, y: y0, w: rw, h: rh }, cutoff, tolerance, null, null);
+        return scan.eligible ? scan.detected / scan.eligible * 100 : 0;
       }
-      function estimatedPercent() {
+            function estimatedPercent() {
         if (!stats.eligible) return null;
         const raw = stats.detected / stats.eligible * 100;
         const reference = referenceCoverage(Number(el("brightness").value), Number(el("whiteness").value));
@@ -336,26 +418,8 @@
         const tolerance = Number(el("whiteness").value);
         const r = regionPixels();
         const out = new ImageData(width, height);
-        const src = imagePixels.data, dst = out.data;
-        let detected = 0, eligible = 0, masked = 0;
-        for (let y = r.y; y < r.y + r.h; y++) {
-          let idx = y * width + r.x;
-          for (let x = r.x; x < r.x + r.w; x++, idx++) {
-            const p = idx * 4;
-            if (mask[idx]) { masked++; dst[p] = 100; dst[p + 1] = 223; dst[p + 2] = 191; dst[p + 3] = 140; continue; }
-            eligible++;
-            const red = src[p], green = src[p + 1], blue = src[p + 2];
-            const max = Math.max(red, green, blue), min = Math.min(red, green, blue);
-            const brightness = red * 0.299 + green * 0.587 + blue * 0.114;
-            if (brightness >= cutoff && max - min <= tolerance) {
-              detected++;
-              dst[p] = 255; dst[p + 1] = 91; dst[p + 2] = 111; dst[p + 3] = 190;
-            }
-            if (mask[idx]) { dst[p] = 100; dst[p + 1] = 223; dst[p + 2] = 191; dst[p + 3] = 120; }
-          }
-        }
+        stats = scanRegion(imagePixels.data, width, height, r, cutoff, tolerance, mask, out.data);
         overlayCtx.putImageData(out, 0, 0);
-        stats = { detected, eligible, masked, regionPixels: r.w * r.h };
         updateResults();
         render();
       }
@@ -372,7 +436,7 @@
         el("excludedCount").textContent = imagePixels ? fmt(stats.masked) : "—";
         el("regionSize").textContent = imagePixels ? `${Math.round(region.w * 100)}% × ${Math.round(region.h * 100)}%` : "—";
         el("maskCount").textContent = `${fmt(stats.masked)} masked`;
-        el("resultTag").textContent = !imagePixels ? "Ready" : !measuredArea ? "NO AREA" : !referenceAvailable ? "NO REFERENCE" : shouldReplace ? "REPLACE" : "BELOW 50%";
+        el("resultTag").textContent = !imagePixels ? "Ready" : !measuredArea ? "NO FELT" : !referenceAvailable ? "NO REFERENCE" : shouldReplace ? "REPLACE" : "BELOW 50%";
         el("resultTag").classList.toggle("replace", shouldReplace);
         el("resultTag").classList.toggle("below", Boolean(hasSample && !shouldReplace));
         const frameStatus = el("frameStatus");
@@ -381,7 +445,7 @@
         frameStatus.innerHTML = !imagePixels
           ? '<span class="privacy-dot"></span> WAITING FOR IMAGE'
           : !measuredArea
-            ? '<span class="privacy-dot"></span> NO AREA'
+            ? '<span class="privacy-dot"></span> NO FELT'
             : !referenceAvailable
               ? '<span class="privacy-dot"></span> NO 50% REFERENCE'
               : `<span class="privacy-dot"></span> ${pct.toFixed(2)}% · ${shouldReplace ? "REPLACE" : "BELOW 50%"}`;
@@ -389,9 +453,9 @@
         status.textContent = !imagePixels
           ? `At the ${REPLACE_THRESHOLD}% reference level or higher, the result changes to REPLACE.`
           : !measuredArea
-            ? "Unmask part of the box to calculate coverage."
+            ? "No tablecloth color found inside the box. Move the frame onto the felt or change the area."
           : !referenceAvailable
-            ? "No white reference pixels match these settings. Lower brightness or increase white tolerance."
+            ? "No tablecloth pixels in the reference area match these settings. Adjust the sensitivity."
           : shouldReplace
             ? `${REPLACE_THRESHOLD}% threshold reached · Replace the felt.`
             : `${(REPLACE_THRESHOLD - pct).toFixed(2)}% below the 50% replacement reference.`;
@@ -583,7 +647,7 @@
         reportCtx.fillText(`WHITE STAIN ESTIMATE · ${pct}%`, margin, headerHeight * .42);
         reportCtx.fillStyle = "#adb1c4";
         reportCtx.font = `500 ${Math.max(10, Math.round(width / 170))}px system-ui, sans-serif`;
-        reportCtx.fillText(`${fmt(stats.detected)} detected / ${fmt(stats.eligible)} measured · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value} · ${REPLACE_THRESHOLD}% reference = REPLACE`, margin, headerHeight * .74);
+        reportCtx.fillText(`${fmt(stats.detected)} detected / ${fmt(stats.eligible)} felt pixels · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value} · ${REPLACE_THRESHOLD}% reference = REPLACE`, margin, headerHeight * .74);
         reportCtx.drawImage(canvas, 0, headerHeight);
         const link = document.createElement("a");
         link.download = `white-stain-inspection-${pct}pct.png`;
