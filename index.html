@@ -217,7 +217,7 @@
           <button class="tool-button active" id="paintMode" aria-pressed="true" disabled>+ Exclude</button>
           <button class="tool-button erase" id="eraseMode" aria-pressed="false" disabled>− Erase mask</button>
         </div>
-        <p class="helper-text">Thin table text and outline printing are filtered automatically. Only broad pale patches are counted as stains. Brush over any print or glare that still overlaps the cloth.</p>
+        <p class="helper-text">Only purple felt pixels are measured. Cards and colored print are ignored; broad pale patches are highlighted as stains. Brush over any remaining reflection or print to exclude it.</p>
         <div class="brush-controls">
           <label class="control-label" for="brushSize">Brush size <span class="range-value" id="brushValue">28 px</span></label>
           <input id="brushSize" type="range" min="8" max="64" value="28" disabled>
@@ -227,9 +227,9 @@
         <div class="divider"></div>
         <h2 class="section-heading"><span class="step">04</span> Tablecloth stain sensitivity</h2>
         <div class="range-wrap">
-          <label class="control-label" for="brightness">Brightness cutoff <span class="range-value" id="brightnessValue">150</span></label>
-          <input id="brightness" type="range" min="130" max="250" value="150" disabled>
-          <div class="range-caption"><span>More pixels</span><span>Brighter only</span></div>
+          <label class="control-label" for="brightness">Brightness above felt <span class="range-value" id="brightnessValue">8</span></label>
+          <input id="brightness" type="range" min="2" max="30" value="8" disabled>
+          <div class="range-caption"><span>More stain pixels</span><span>Stronger contrast</span></div>
         </div>
         <div class="range-wrap">
           <label class="control-label" for="whiteness">White tolerance <span class="range-value" id="whitenessValue">100</span></label>
@@ -279,7 +279,7 @@
     (() => {
       const DEFAULT_REGION = { x: 0.384, y: 0.526, w: 0.264, h: 0.154 };
       const REPLACE_THRESHOLD = 50;
-      const REPLACEMENT_REFERENCE_SCORES = [3.25437, 0.18460, 0.08253, 0.34799, 0.05890, 2.46562];
+      const REPLACEMENT_REFERENCE_SCORES = [3.06576, 6.10766, 11.24535, 1.78477, 10.80964, 6.16049];
       const REFERENCE_RAW_LOW = Math.min(...REPLACEMENT_REFERENCE_SCORES) * 0.90;
       const REFERENCE_RAW_HIGH = Math.max(...REPLACEMENT_REFERENCE_SCORES) * 1.10;
       const REFERENCE_SAMPLE_COUNT = REPLACEMENT_REFERENCE_SCORES.length;
@@ -322,7 +322,7 @@
         return Math.min(difference, 360 - difference);
       }
       function isTableclothColor(feature, dominantHue) {
-        return feature.hue >= 0 && feature.saturation >= 0.16 &&
+        return feature.hue >= 0 && feature.saturation >= 0.12 &&
           feature.brightness >= 18 && feature.brightness <= 235 &&
           hueDistance(feature.hue, dominantHue) <= 38;
       }
@@ -379,13 +379,24 @@ function findRectangularCards(candidateMask, w, h) {
         const y0 = clamp(Math.round(box.y), 0, pixelHeight - 1);
         const w = Math.max(1, Math.min(Math.round(box.w), pixelWidth - x0));
         const h = Math.max(1, Math.min(Math.round(box.h), pixelHeight - y0));
+        const size = w * h;
         const hueCounts = new Uint32Array(36);
+        const hues = new Float32Array(size);
+        const saturations = new Uint8Array(size);
+        const brightness = new Uint8Array(size);
+        const spreads = new Uint8Array(size);
         let coloredPixels = 0;
         for (let y = 0; y < h; y++) {
           let p = ((y0 + y) * pixelWidth + x0) * 4;
           for (let x = 0; x < w; x++, p += 4) {
+            const local = y * w + x;
             const feature = colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]);
-            if (feature.hue >= 0 && feature.saturation >= 0.16 && feature.brightness >= 18 && feature.brightness <= 235) {
+            hues[local] = feature.hue;
+            saturations[local] = Math.round(feature.saturation * 255);
+            brightness[local] = Math.round(feature.brightness);
+            spreads[local] = feature.spread;
+            if (feature.hue >= 0 && feature.saturation >= 0.16 &&
+                feature.brightness >= 18 && feature.brightness <= 235) {
               hueCounts[Math.floor(feature.hue / 10) % 36]++;
               coloredPixels++;
             }
@@ -395,37 +406,71 @@ function findRectangularCards(candidateMask, w, h) {
         for (let i = 0; i < hueCounts.length; i++) {
           if (hueCounts[i] > dominantCount) { dominantCount = hueCounts[i]; dominantBin = i; }
         }
-        const emptyStats = { detected: 0, eligible: 0, masked: 0, cardExcluded: 0, regionPixels: w * h };
-        if (!coloredPixels || dominantCount < Math.max(12, Math.floor(w * h * 0.015))) return emptyStats;
+        const emptyStats = { detected: 0, eligible: 0, masked: 0, cardExcluded: 0, regionPixels: size };
+        if (!coloredPixels || dominantCount < Math.max(12, Math.floor(size * 0.015))) return emptyStats;
         const dominantHue = dominantBin * 10 + 5;
-        const felt = new Uint8Array(w * h);
-        const stride = w + 1;
-        const integral = new Uint32Array((w + 1) * (h + 1));
-        for (let y = 0; y < h; y++) {
-          let rowSum = 0;
-          let p = ((y0 + y) * pixelWidth + x0) * 4;
-          for (let x = 0; x < w; x++, p += 4) {
-            const isFelt = isTableclothColor(colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]), dominantHue);
-            const local = y * w + x;
-            felt[local] = isFelt ? 1 : 0;
-            rowSum += isFelt ? 1 : 0;
-            integral[(y + 1) * stride + x + 1] = integral[y * stride + x + 1] + rowSum;
-          }
+        const felt = new Uint8Array(size);
+        const brightnessHistogram = new Uint32Array(256);
+        const saturationHistogram = new Uint32Array(101);
+        let feltCount = 0;
+        for (let i = 0; i < size; i++) {
+          const feature = {
+            hue: hues[i],
+            saturation: saturations[i] / 255,
+            brightness: brightness[i]
+          };
+          if (!isTableclothColor(feature, dominantHue)) continue;
+          felt[i] = 1;
+          brightnessHistogram[brightness[i]]++;
+          saturationHistogram[clamp(Math.round(feature.saturation * 100), 0, 100)]++;
+          feltCount++;
         }
-        const candidateMask = new Uint8Array(w * h);
-        const candidateStride = w + 1;
+        if (!feltCount) return emptyStats;
+        function quantile(histogram, count, q) {
+          const target = Math.floor((count - 1) * q);
+          let seen = 0;
+          for (let i = 0; i < histogram.length; i++) {
+            seen += histogram[i];
+            if (seen > target) return i;
+          }
+          return histogram.length - 1;
+        }
+        const backgroundBrightness = quantile(brightnessHistogram, feltCount, 0.40);
+        const backgroundSaturation = quantile(saturationHistogram, feltCount, 0.40) / 100;
+        const feltIntegral = new Uint32Array((w + 1) * (h + 1));
+        const candidateMask = new Uint8Array(size);
         const candidateIntegral = new Uint32Array((w + 1) * (h + 1));
+        const brightnessIntegral = new Float64Array((w + 1) * (h + 1));
+        const brightnessSquaredIntegral = new Float64Array((w + 1) * (h + 1));
+        const stride = w + 1;
+        const candidateStride = w + 1;
         for (let y = 0; y < h; y++) {
-          let rowSum = 0;
-          let p = ((y0 + y) * pixelWidth + x0) * 4;
-          for (let x = 0; x < w; x++, p += 4) {
-            const feature = colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]);
-            const clothLike = feature.saturation <= 0.16 || hueDistance(feature.hue, dominantHue) <= 38;
+          let feltRow = 0, candidateRow = 0, brightnessRow = 0, brightnessSquaredRow = 0;
+          for (let x = 0; x < w; x++) {
             const local = y * w + x;
-            const candidate = feature.brightness >= cutoff && feature.spread <= tolerance && clothLike ? 1 : 0;
-            candidateMask[local] = candidate;
-            rowSum += candidate;
-            candidateIntegral[(y + 1) * candidateStride + x + 1] = candidateIntegral[y * candidateStride + x + 1] + rowSum;
+            const feature = {
+              hue: hues[local],
+              saturation: saturations[local] / 255,
+              brightness: brightness[local],
+              spread: spreads[local]
+            };
+            const candidate = felt[local] &&
+              feature.brightness >= backgroundBrightness + cutoff &&
+              feature.spread <= tolerance &&
+              feature.saturation >= 0.12 &&
+              feature.saturation <= backgroundSaturation - 0.08 &&
+              hueDistance(feature.hue, dominantHue) <= 38;
+            candidateMask[local] = candidate ? 1 : 0;
+            feltRow += felt[local];
+            candidateRow += candidate ? 1 : 0;
+            const value = brightness[local];
+            brightnessRow += value;
+            brightnessSquaredRow += value * value;
+            const integralIndex = (y + 1) * stride + x + 1;
+            feltIntegral[integralIndex] = feltIntegral[y * stride + x + 1] + feltRow;
+            candidateIntegral[integralIndex] = candidateIntegral[y * candidateStride + x + 1] + candidateRow;
+            brightnessIntegral[integralIndex] = brightnessIntegral[y * stride + x + 1] + brightnessRow;
+            brightnessSquaredIntegral[integralIndex] = brightnessSquaredIntegral[y * stride + x + 1] + brightnessSquaredRow;
           }
         }
         const cardMask = findRectangularCards(candidateMask, w, h);
@@ -446,13 +491,14 @@ function findRectangularCards(candidateMask, w, h) {
               if (overlayData) { overlayData[p] = 96; overlayData[p + 1] = 168; overlayData[p + 2] = 255; overlayData[p + 3] = 150; }
               continue;
             }
-            const candidate = candidateMask[local] === 1;
+            if (!felt[local]) continue;
+            eligible++;
             const left = Math.max(0, x - radius), right = Math.min(w - 1, x + radius);
             const top = Math.max(0, y - radius), bottom = Math.min(h - 1, y + radius);
-            const a = integral[top * stride + left];
-            const b = integral[top * stride + right + 1];
-            const c = integral[(bottom + 1) * stride + left];
-            const d = integral[(bottom + 1) * stride + right + 1];
+            const a = feltIntegral[top * stride + left];
+            const b = feltIntegral[top * stride + right + 1];
+            const c = feltIntegral[(bottom + 1) * stride + left];
+            const d = feltIntegral[(bottom + 1) * stride + right + 1];
             const feltNearby = d - b - c + a;
             const localArea = (right - left + 1) * (bottom - top + 1);
             const hasFeltContext = feltNearby >= Math.max(4, Math.round(localArea * 0.18));
@@ -464,16 +510,29 @@ function findRectangularCards(candidateMask, w, h) {
             const cc = candidateIntegral[(pBottom + 1) * candidateStride + pLeft];
             const cd = candidateIntegral[(pBottom + 1) * candidateStride + pRight + 1];
             const localCandidateCount = cd - cb - cc + ca;
-            const broadPalePatch = candidate && localCandidateCount >= Math.max(1, Math.round(pArea * 0.60));
-            if (!felt[local] && !(broadPalePatch && hasFeltContext)) continue;
-            eligible++;
-            if (broadPalePatch && hasFeltContext) {
+            const broadPalePatch = candidateMask[local] &&
+              localCandidateCount >= Math.max(1, Math.round(pArea * 0.60));
+            const eLeft = Math.max(0, x - 3), eRight = Math.min(w - 1, x + 3);
+            const eTop = Math.max(0, y - 3), eBottom = Math.min(h - 1, y + 3);
+            const eArea = (eRight - eLeft + 1) * (eBottom - eTop + 1);
+            const ea = brightnessIntegral[eTop * stride + eLeft];
+            const eb = brightnessIntegral[eTop * stride + eRight + 1];
+            const ec = brightnessIntegral[(eBottom + 1) * stride + eLeft];
+            const ed = brightnessIntegral[(eBottom + 1) * stride + eRight + 1];
+            const eaa = brightnessSquaredIntegral[eTop * stride + eLeft];
+            const ebb = brightnessSquaredIntegral[eTop * stride + eRight + 1];
+            const ecc = brightnessSquaredIntegral[(eBottom + 1) * stride + eLeft];
+            const edd = brightnessSquaredIntegral[(eBottom + 1) * stride + eRight + 1];
+            const mean = (ed - eb - ec + ea) / eArea;
+            const variance = Math.max(0, (edd - ebb - ecc + eaa) / eArea - mean * mean);
+            const smoothPatch = Math.sqrt(variance) <= 18;
+            if (broadPalePatch && hasFeltContext && smoothPatch) {
               detected++;
               if (overlayData) { overlayData[p] = 255; overlayData[p + 1] = 91; overlayData[p + 2] = 111; overlayData[p + 3] = 190; }
             }
           }
         }
-        return { detected, eligible, masked, cardExcluded, regionPixels: w * h };
+        return { detected, eligible, masked, cardExcluded, regionPixels: size };
       }
       function whiteCoveragePercent() {
         if (!stats.eligible) return null;
@@ -582,7 +641,7 @@ function findRectangularCards(candidateMask, w, h) {
         ctx.fillStyle = "#e7e1ff";
         ctx.fillText(label, r.x + pad, Math.max(labelH - 6 / scale, r.y - 8 / scale));
         const value = whiteCoveragePercent();
-        const percentage = value === null ? "—%" : `${value.toFixed(2)}% WHITE`;
+        const percentage = value === null ? "—% REPLACE LEVEL" : `${value.toFixed(2)}% REPLACE LEVEL`;
         ctx.font = `700 ${Math.min(11 / scale, Math.max(1, r.w / 8))}px system-ui, sans-serif`;
         const badgePad = 7 / scale;
         const badgeWidth = ctx.measureText(percentage).width + badgePad * 2;
