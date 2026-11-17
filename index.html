@@ -104,11 +104,12 @@
     .empty-hint { margin-top:20px; color:#777d92; font-size:9px; }
     #scene { display:none; width:100%; height:auto; border-radius:7px; touch-action:none; user-select:none; }
     .canvas-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 15px; border-top:1px solid var(--line); color:var(--muted); font-size:9px; }
-    .legend { display:flex; align-items:center; gap:12px; }
+    .legend { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     .legend-item { display:flex; align-items:center; gap:5px; }
     .swatch { width:8px; height:8px; border-radius:3px; }
     .swatch.stain { background:var(--red); box-shadow:0 0 8px rgba(255,102,117,.4); }
     .swatch.mask { background:var(--mint); }
+    .swatch.object { background:#60a8ff; box-shadow:0 0 8px rgba(96,168,255,.35); }
     .results { padding:18px; }
     .result-label { color:var(--muted); font-size:10px; font-weight:600; }
     .result-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -216,7 +217,7 @@
           <button class="tool-button active" id="paintMode" aria-pressed="true" disabled>+ Exclude</button>
           <button class="tool-button erase" id="eraseMode" aria-pressed="false" disabled>− Erase mask</button>
         </div>
-        <p class="helper-text">The felt-color filter ignores large objects and colored print. Brush over white lettering or reflections that overlap the cloth.</p>
+        <p class="helper-text">Rectangular card faces are filtered out. Brush over any partly visible card, white lettering, or reflection that overlaps the felt.</p>
         <div class="brush-controls">
           <label class="control-label" for="brushSize">Brush size <span class="range-value" id="brushValue">28 px</span></label>
           <input id="brushSize" type="range" min="8" max="64" value="28" disabled>
@@ -251,7 +252,7 @@
           </div>
           <canvas id="scene" aria-label="Uploaded image with editable inspection area"></canvas>
         </div>
-        <div class="canvas-foot"><div class="legend"><span class="legend-item"><span class="swatch stain"></span>Detected white pixels</span><span class="legend-item"><span class="swatch mask"></span>Excluded area</span></div><span id="imageDimensions">PNG · JPG · WebP</span></div>
+        <div class="canvas-foot"><div class="legend"><span class="legend-item"><span class="swatch stain"></span>Detected stain</span><span class="legend-item"><span class="swatch object"></span>Card ignored</span><span class="legend-item"><span class="swatch mask"></span>Manual mask</span></div><span id="imageDimensions">PNG · JPG · WebP</span></div>
       </section>
 
       <aside class="panel results" aria-live="polite">
@@ -261,12 +262,13 @@
         <div class="stat-list">
           <div class="stat-row"><span>Detected pixels</span><strong id="detectedCount">—</strong></div>
           <div class="stat-row"><span>Tablecloth pixels</span><strong id="measuredCount">—</strong></div>
+          <div class="stat-row"><span>Card pixels ignored</span><strong id="cardCount">—</strong></div>
           <div class="stat-row"><span>Masked pixels</span><strong id="excludedCount">—</strong></div>
           <div class="stat-row"><span>Region size</span><strong id="regionSize">—</strong></div>
         </div>
         <div class="result-divider"></div>
         <button class="download-button" id="download" disabled><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 17v2.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Download result PNG</button>
-        <p class="fineprint">The user-marked example is calibrated as 50%. Only pale pixels supported by the tablecloth color inside your box are counted. White text, remaining card edges, or glare can be excluded with the brush.</p>
+        <p class="fineprint">The user-marked example is calibrated as 50%. Card-shaped areas are automatically excluded. Only pale pixels supported by the tablecloth color inside your box are counted; brush over partial cards, lettering, or glare that overlaps the felt.</p>
       </aside>
     </section>
     <div class="bottom-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 19 6v5.8c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V6l7-2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Local processing · No automatic black-square detection · Nothing uploaded to a server</div>
@@ -323,6 +325,54 @@
           feature.brightness >= 18 && feature.brightness <= 235 &&
           hueDistance(feature.hue, dominantHue) <= 38;
       }
+function findRectangularCards(candidateMask, w, h) {
+        const size = w * h;
+        const visited = new Uint8Array(size);
+        const ignored = new Uint8Array(size);
+        const queue = new Int32Array(size);
+        for (let seed = 0; seed < size; seed++) {
+          if (!candidateMask[seed] || visited[seed]) continue;
+          let head = 0, tail = 0;
+          let minX = w, minY = h, maxX = -1, maxY = -1;
+          queue[tail++] = seed;
+          visited[seed] = 1;
+          while (head < tail) {
+            const index = queue[head++];
+            const x = index % w, y = Math.floor(index / w);
+            minX = Math.min(minX, x); minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+            for (let ny = Math.max(0, y - 1); ny <= Math.min(h - 1, y + 1); ny++) {
+              for (let nx = Math.max(0, x - 1); nx <= Math.min(w - 1, x + 1); nx++) {
+                const neighbor = ny * w + nx;
+                if (!visited[neighbor] && candidateMask[neighbor]) {
+                  visited[neighbor] = 1;
+                  queue[tail++] = neighbor;
+                }
+              }
+            }
+          }
+          const boxWidth = maxX - minX + 1, boxHeight = maxY - minY + 1;
+          const boxArea = boxWidth * boxHeight;
+          const aspect = boxWidth / boxHeight;
+          if (tail < 220 || Math.min(boxWidth, boxHeight) < 14 ||
+              Math.max(boxWidth, boxHeight) < 24 || aspect < 0.40 || aspect > 2.30 ||
+              tail / boxArea < 0.46) continue;
+          let edgeHits = 0, edgeTotal = 0;
+          for (let x = minX; x <= maxX; x++) {
+            edgeTotal += 2;
+            edgeHits += candidateMask[minY * w + x] + candidateMask[maxY * w + x];
+          }
+          for (let y = minY + 1; y < maxY; y++) {
+            edgeTotal += 2;
+            edgeHits += candidateMask[y * w + minX] + candidateMask[y * w + maxX];
+          }
+          if (!edgeTotal || edgeHits / edgeTotal < 0.58) continue;
+          for (let y = Math.max(0, minY - 3); y <= Math.min(h - 1, maxY + 3); y++) {
+            for (let x = Math.max(0, minX - 3); x <= Math.min(w - 1, maxX + 3); x++) ignored[y * w + x] = 1;
+          }
+        }
+        return ignored;
+      }
       function scanRegion(pixels, pixelWidth, pixelHeight, box, cutoff, tolerance, exclusionMask, overlayData) {
         const x0 = clamp(Math.round(box.x), 0, pixelWidth - 1);
         const y0 = clamp(Math.round(box.y), 0, pixelHeight - 1);
@@ -344,7 +394,7 @@
         for (let i = 0; i < hueCounts.length; i++) {
           if (hueCounts[i] > dominantCount) { dominantCount = hueCounts[i]; dominantBin = i; }
         }
-        const emptyStats = { detected: 0, eligible: 0, masked: 0, regionPixels: w * h };
+        const emptyStats = { detected: 0, eligible: 0, masked: 0, cardExcluded: 0, regionPixels: w * h };
         if (!coloredPixels || dominantCount < Math.max(12, Math.floor(w * h * 0.015))) return emptyStats;
         const dominantHue = dominantBin * 10 + 5;
         const felt = new Uint8Array(w * h);
@@ -361,19 +411,33 @@
             integral[(y + 1) * stride + x + 1] = integral[y * stride + x + 1] + rowSum;
           }
         }
+        const candidateMask = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) {
+          let p = ((y0 + y) * pixelWidth + x0) * 4;
+          for (let x = 0; x < w; x++, p += 4) {
+            const feature = colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]);
+            candidateMask[y * w + x] = feature.brightness >= cutoff && feature.spread <= tolerance ? 1 : 0;
+          }
+        }
+        const cardMask = findRectangularCards(candidateMask, w, h);
         const radius = Math.max(3, Math.min(18, Math.round(Math.min(w, h) * 0.12)));
-        let detected = 0, eligible = 0, masked = 0;
+        let detected = 0, eligible = 0, masked = 0, cardExcluded = 0;
         for (let y = 0; y < h; y++) {
           let sourceIndex = (y0 + y) * pixelWidth + x0;
           for (let x = 0; x < w; x++, sourceIndex++) {
+            const local = y * w + x;
             const p = sourceIndex * 4;
             if (exclusionMask && exclusionMask[sourceIndex]) {
               masked++;
               if (overlayData) { overlayData[p] = 100; overlayData[p + 1] = 223; overlayData[p + 2] = 191; overlayData[p + 3] = 140; }
               continue;
             }
-            const feature = colorFeatures(pixels[p], pixels[p + 1], pixels[p + 2]);
-            const candidate = feature.brightness >= cutoff && feature.spread <= tolerance;
+            if (cardMask[local]) {
+              cardExcluded++;
+              if (overlayData) { overlayData[p] = 96; overlayData[p + 1] = 168; overlayData[p + 2] = 255; overlayData[p + 3] = 150; }
+              continue;
+            }
+            const candidate = candidateMask[local] === 1;
             const left = Math.max(0, x - radius), right = Math.min(w - 1, x + radius);
             const top = Math.max(0, y - radius), bottom = Math.min(h - 1, y + radius);
             const a = integral[top * stride + left];
@@ -383,7 +447,7 @@
             const feltNearby = d - b - c + a;
             const localArea = (right - left + 1) * (bottom - top + 1);
             const hasFeltContext = feltNearby >= Math.max(4, Math.round(localArea * 0.18));
-            if (!felt[y * w + x] && !(candidate && hasFeltContext)) continue;
+            if (!felt[local] && !(candidate && hasFeltContext)) continue;
             eligible++;
             if (candidate && hasFeltContext) {
               detected++;
@@ -391,9 +455,9 @@
             }
           }
         }
-        return { detected, eligible, masked, regionPixels: w * h };
+        return { detected, eligible, masked, cardExcluded, regionPixels: w * h };
       }
-      function referenceCoverage(cutoff, tolerance) {
+            function referenceCoverage(cutoff, tolerance) {
         if (!referencePixels) return 0;
         const x0 = Math.round(REFERENCE_ROI.x * referenceWidth), y0 = Math.round(REFERENCE_ROI.y * referenceHeight);
         const rw = Math.max(1, Math.round(REFERENCE_ROI.w * referenceWidth)), rh = Math.max(1, Math.round(REFERENCE_ROI.h * referenceHeight));
@@ -436,6 +500,7 @@
         el("excludedCount").textContent = imagePixels ? fmt(stats.masked) : "—";
         el("regionSize").textContent = imagePixels ? `${Math.round(region.w * 100)}% × ${Math.round(region.h * 100)}%` : "—";
         el("maskCount").textContent = `${fmt(stats.masked)} masked`;
+        el("cardCount").textContent = imagePixels ? fmt(stats.cardExcluded) : "—";
         el("resultTag").textContent = !imagePixels ? "Ready" : !measuredArea ? "NO FELT" : !referenceAvailable ? "NO REFERENCE" : shouldReplace ? "REPLACE" : "BELOW 50%";
         el("resultTag").classList.toggle("replace", shouldReplace);
         el("resultTag").classList.toggle("below", Boolean(hasSample && !shouldReplace));
@@ -647,7 +712,7 @@
         reportCtx.fillText(`WHITE STAIN ESTIMATE · ${pct}%`, margin, headerHeight * .42);
         reportCtx.fillStyle = "#adb1c4";
         reportCtx.font = `500 ${Math.max(10, Math.round(width / 170))}px system-ui, sans-serif`;
-        reportCtx.fillText(`${fmt(stats.detected)} detected / ${fmt(stats.eligible)} felt pixels · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value} · ${REPLACE_THRESHOLD}% reference = REPLACE`, margin, headerHeight * .74);
+        reportCtx.fillText(`${fmt(stats.detected)} detected / ${fmt(stats.eligible)} felt pixels · ${fmt(stats.cardExcluded)} card pixels ignored · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value} · ${REPLACE_THRESHOLD}% reference = REPLACE`, margin, headerHeight * .74);
         reportCtx.drawImage(canvas, 0, headerHeight);
         const link = document.createElement("a");
         link.download = `white-stain-inspection-${pct}pct.png`;
