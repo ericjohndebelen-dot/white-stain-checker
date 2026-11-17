@@ -256,11 +256,12 @@
       </section>
 
       <aside class="panel results" aria-live="polite">
-        <div class="result-top"><div class="result-label">Six-photo calibrated stain level</div><div class="result-tag" id="resultTag">Ready</div></div>
-        <div class="coverage-wrap"><div class="coverage" id="coverage">—<span>%</span></div><div class="result-caption">On tablecloth pixels inside the box · six replace references = 50%</div><div class="threshold-status" id="thresholdStatus">At the 50% reference level or higher, the result changes to REPLACE.</div><div class="reference-chip"><span class="reference-count">6</span><span><strong>Six-photo replacement reference</strong><small>Measured raw tablecloth range 2.58%–7.33% maps to 50% REPLACE; photos stay private.</small></span></div></div>
-        <div class="meter" aria-label="White stain percentage; replacement threshold at 50%"><div class="meter-fill" id="meterFill"></div><span class="meter-threshold" title="Replace threshold: 50%"></span></div>
+        <div class="result-top"><div class="result-label">White stain coverage inside the box</div><div class="result-tag" id="resultTag">Ready</div></div>
+        <div class="coverage-wrap"><div class="coverage" id="coverage">—<span>%</span></div><div class="result-caption">Of the valid cloth area inside the inspection frame</div><div class="threshold-status" id="thresholdStatus">At the 50% reference level or higher, the result changes to REPLACE.</div><div class="reference-chip"><span class="reference-count">6</span><span><strong>Six-photo replacement reference</strong><small>The six replacement photos calibrate the separate 50% replacement level; photos stay private.</small></span></div></div>
+        <div class="meter" aria-label="Replacement level; replace threshold at 50%"><div class="meter-fill" id="meterFill"></div><span class="meter-threshold" title="Replace threshold: 50%"></span></div>
         <div class="stat-list">
-          <div class="stat-row"><span>Detected pixels</span><strong id="detectedCount">—</strong></div>
+          <div class="stat-row"><span>Replacement level</span><strong id="replacementLevel">—</strong></div>
+          <div class="stat-row"><span>White stain pixels</span><strong id="detectedCount">—</strong></div>
           <div class="stat-row"><span>Tablecloth pixels</span><strong id="measuredCount">—</strong></div>
           <div class="stat-row"><span>Card pixels ignored</span><strong id="cardCount">—</strong></div>
           <div class="stat-row"><span>Masked pixels</span><strong id="excludedCount">—</strong></div>
@@ -474,9 +475,13 @@ function findRectangularCards(candidateMask, w, h) {
         }
         return { detected, eligible, masked, cardExcluded, regionPixels: w * h };
       }
-      function estimatedPercent() {
+      function whiteCoveragePercent() {
         if (!stats.eligible) return null;
-        const raw = stats.detected / stats.eligible * 100;
+        return stats.detected / stats.eligible * 100;
+      }
+      function estimatedPercent() {
+        const raw = whiteCoveragePercent();
+        if (raw === null) return null;
         if (raw < REFERENCE_RAW_LOW) return clamp(raw / REFERENCE_RAW_LOW * REPLACE_THRESHOLD, 0, REPLACE_THRESHOLD);
         if (raw <= REFERENCE_RAW_HIGH) return REPLACE_THRESHOLD;
         const span = Math.max(REFERENCE_RAW_HIGH - REFERENCE_RAW_LOW, REFERENCE_RAW_HIGH * 0.1);
@@ -503,9 +508,11 @@ function findRectangularCards(candidateMask, w, h) {
         const referenceAvailable = REFERENCE_RAW_LOW > 0 && REFERENCE_RAW_HIGH > REFERENCE_RAW_LOW;
         const measuredArea = Boolean(imagePixels && stats.eligible > 0);
         const pct = estimatedPercent() ?? 0;
+        const whitePct = whiteCoveragePercent();
         const hasSample = Boolean(measuredArea && referenceAvailable);
         const shouldReplace = Boolean(hasSample && pct >= REPLACE_THRESHOLD);
-        el("coverage").innerHTML = hasSample ? `${pct.toFixed(2)}<span>%</span>` : `—<span>%</span>`;
+        el("coverage").innerHTML = measuredArea ? `${whitePct.toFixed(2)}<span>%</span>` : `—<span>%</span>`;
+        el("replacementLevel").textContent = hasSample ? `${pct.toFixed(2)}%` : "—";
         el("meterFill").style.width = `${Math.min(pct, 100)}%`;
         el("detectedCount").textContent = imagePixels ? fmt(stats.detected) : "—";
         el("measuredCount").textContent = imagePixels ? fmt(stats.eligible) : "—";
@@ -525,7 +532,7 @@ function findRectangularCards(candidateMask, w, h) {
             ? '<span class="privacy-dot"></span> NO FELT'
             : !referenceAvailable
               ? '<span class="privacy-dot"></span> NO 50% REFERENCE'
-              : `<span class="privacy-dot"></span> ${pct.toFixed(2)}% · ${shouldReplace ? "REPLACE" : "BELOW 50%"}`;
+              : `<span class="privacy-dot"></span> ${whitePct.toFixed(2)}% WHITE · ${shouldReplace ? "REPLACE" : "BELOW 50%"}`;
         const status = el("thresholdStatus");
         status.textContent = !imagePixels
           ? `At the ${REPLACE_THRESHOLD}% reference level or higher, the result changes to REPLACE.`
@@ -534,8 +541,8 @@ function findRectangularCards(candidateMask, w, h) {
           : !referenceAvailable
             ? "The six-photo calibration range is unavailable. Reset the sensitivity controls."
           : shouldReplace
-            ? `${REPLACE_THRESHOLD}% threshold reached · Replace the felt.`
-            : `${(REPLACE_THRESHOLD - pct).toFixed(2)}% below the 50% replacement reference.`;
+            ? `${REPLACE_THRESHOLD}% replacement level reached · Replace the felt. Actual white coverage: ${whitePct.toFixed(2)}%.`
+            : `${(REPLACE_THRESHOLD - pct).toFixed(2)}% below the 50% replacement level · Actual white coverage: ${whitePct.toFixed(2)}%.`;
         status.classList.toggle("replace", shouldReplace);
         el("download").disabled = !hasSample;
       }
@@ -574,14 +581,14 @@ function findRectangularCards(candidateMask, w, h) {
         ctx.beginPath(); ctx.roundRect(r.x, Math.max(0, r.y - labelH - 4 / scale), labelW, labelH, 5 / scale); ctx.fill();
         ctx.fillStyle = "#e7e1ff";
         ctx.fillText(label, r.x + pad, Math.max(labelH - 6 / scale, r.y - 8 / scale));
-        const value = estimatedPercent();
-        const percentage = value === null ? "—%" : `${value.toFixed(2)}%`;
+        const value = whiteCoveragePercent();
+        const percentage = value === null ? "—%" : `${value.toFixed(2)}% WHITE`;
         ctx.font = `700 ${Math.min(11 / scale, Math.max(1, r.w / 8))}px system-ui, sans-serif`;
         const badgePad = 7 / scale;
         const badgeWidth = ctx.measureText(percentage).width + badgePad * 2;
         const badgeHeight = 20 / scale;
         const badgeX = Math.max(r.x, r.x + r.w - badgeWidth - 5 / scale);
-        ctx.fillStyle = value !== null && value >= REPLACE_THRESHOLD ? "rgba(111,35,49,.94)" : "rgba(27,23,53,.94)";
+        ctx.fillStyle = estimatedPercent() !== null && estimatedPercent() >= REPLACE_THRESHOLD ? "rgba(111,35,49,.94)" : "rgba(27,23,53,.94)";
         ctx.beginPath(); ctx.roundRect(badgeX, r.y + 5 / scale, badgeWidth, badgeHeight, 5 / scale); ctx.fill();
         ctx.fillStyle = "#fff2f3";
         ctx.fillText(percentage, badgeX + badgePad, r.y + 19 / scale);
@@ -706,12 +713,14 @@ function findRectangularCards(candidateMask, w, h) {
       el("clearMask").addEventListener("click", () => { if (mask) { mask.fill(0); analyze(); } });
       el("download").addEventListener("click", () => {
         const estimate = estimatedPercent();
-        if (!bitmap || estimate === null) return;
+        const whiteCoverage = whiteCoveragePercent();
+        if (!bitmap || estimate === null || whiteCoverage === null) return;
         render();
         const r = regionPixels();
         ctx.save();
         ctx.strokeStyle = "#b8aaff"; ctx.lineWidth = Math.max(2,width/900); ctx.setLineDash([10,6]); ctx.strokeRect(r.x,r.y,r.w,r.h); ctx.restore();
-        const pct = estimate.toFixed(2);
+        const pct = whiteCoverage.toFixed(2);
+        const level = estimate.toFixed(2);
         const headerHeight = Math.max(72, Math.round(width * .055));
         const margin = Math.max(14, Math.round(width * .025));
         const reportCanvas = document.createElement("canvas");
@@ -721,13 +730,13 @@ function findRectangularCards(candidateMask, w, h) {
         reportCtx.fillRect(0, 0, width, headerHeight);
         reportCtx.fillStyle = "#f1efff";
         reportCtx.font = `700 ${Math.max(15, Math.round(width / 86))}px system-ui, sans-serif`;
-        reportCtx.fillText(`WHITE STAIN ESTIMATE · ${pct}%`, margin, headerHeight * .42);
+        reportCtx.fillText(`WHITE STAIN COVERAGE · ${pct}%`, margin, headerHeight * .42);
         reportCtx.fillStyle = "#adb1c4";
         reportCtx.font = `500 ${Math.max(10, Math.round(width / 170))}px system-ui, sans-serif`;
-        reportCtx.fillText(`${fmt(stats.detected)} detected / ${fmt(stats.eligible)} felt pixels · ${fmt(stats.cardExcluded)} card pixels ignored · ${REFERENCE_SAMPLE_COUNT} samples = 50% REPLACE · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value} · ${REPLACE_THRESHOLD}% reference = REPLACE`, margin, headerHeight * .74);
+        reportCtx.fillText(`${fmt(stats.detected)} white pixels / ${fmt(stats.eligible)} cloth pixels · replacement level ${level}% (${REPLACE_THRESHOLD}% = REPLACE) · ${fmt(stats.cardExcluded)} card pixels ignored · brightness ${el("brightness").value} · white tolerance ${el("whiteness").value}`, margin, headerHeight * .74);
         reportCtx.drawImage(canvas, 0, headerHeight);
         const link = document.createElement("a");
-        link.download = `white-stain-inspection-${pct}pct.png`;
+        link.download = `white-stain-coverage-${pct}pct.png`;
         link.href = reportCanvas.toDataURL("image/png");
         link.click();
         render();
